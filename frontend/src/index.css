@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Blindspot ECDAT Design Tokens (Enterprise Security Dark Theme)
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Surface hierarchy */
+  --color-canvas: #080B0F;
+  --color-canvas-subtle: #0C1117;
+  --color-surface: #11171E;
+  --color-surface-raised: #151C24;
+  --color-border-subtle: #222B35;
+  --color-border-bright: #334155;
+
+  /* Typography ink */
+  --color-ink: #F1F5F9;
+  --color-ink-muted: #94A3B8;
+  --color-ink-faint: #64748B;
+
+  /* Brand Accents — Sophisticated Muted Blue & Warm Amber */
+  --color-brand: #7DB7E8;
+  --color-brand-secondary: #5F9FD4;
+  --color-brand-highlight: #9BC7EA;
+  --color-brand-amber: #C98A52;
+  --color-brand-amber-light: #D09A62;
+
+  /* Semantic Risk Tiers */
+  --color-tier-overdue: #EF4444;
+  --color-tier-transitional: #F59E0B;
+  --color-tier-low: #22C55E;
+  --color-weak-now: #F43F5E;
+  --color-unknown: #94A3B8;
+
+  /* Confidence levels */
+  --color-confidence-high: #22C55E;
+  --color-confidence-medium: #F59E0B;
+  --color-confidence-low: #94A3B8;
+
+  /* Fonts */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    margin: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  code,
+  pre {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080B0F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222B35;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Scanning Line Keyframes */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(1000%);
+    opacity: 0;
+  }
+}
+
+.animate-scanline {
+  animation: scanline 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Glass & Glow utilities */
+.glass-panel {
+  background: rgba(17, 23, 30, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 43, 53, 0.8);
+}
+
+.glass-panel-raised {
+  background: rgba(21, 28, 36, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.subtle-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(34, 43, 53, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 43, 53, 0.3) 1px, transparent 1px);
+}
+
+/* Keyframes & Animations */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(125, 183, 232, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(125, 183, 232, 0.5);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer-slide {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-float {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glow-brand {
+  box-shadow: 0 0 25px rgba(125, 183, 232, 0.3);
+}
+
+.glow-brand-hover:hover {
+  box-shadow: 0 0 35px rgba(125, 183, 232, 0.5);
+}
+
+

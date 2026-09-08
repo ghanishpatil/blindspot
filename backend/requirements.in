@@ -1,0 +1,38 @@
+# Direct dependencies for the Blindspot ECDAT backend.
+#
+# Exact resolved versions (including transitive dependencies) are pinned in
+# requirements.txt. Regenerate it after changing this file:
+#
+#   pip install -r requirements.in
+#   pip freeze > requirements.txt
+#
+# Scope discipline: no Postgres, Redis, Celery, Kubernetes, GraphQL, or
+# message brokers. The demo is one FastAPI process plus Firebase.
+
+# --- Web framework ---------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.34
+python-multipart>=0.0.20
+
+# --- Configuration and validation -----------------------------------------
+pydantic>=2.10
+pydantic-settings>=2.7
+
+# --- Firebase --------------------------------------------------------------
+firebase-admin>=6.6
+
+# --- Discovery -------------------------------------------------------------
+# Pinned exactly, and deliberately so. Older semgrep releases publish no
+# win_amd64 wheel, and their sdist aborts with "Semgrep does not support
+# Windows yet". With a range, pip backtracks into those versions and the whole
+# install fails. 1.176.1 ships a cp310-cp314 win_amd64 wheel and runs natively.
+semgrep==1.176.1
+
+# --- CBOM ------------------------------------------------------------------
+cyclonedx-python-lib>=8.5
+jsonschema>=4.23
+
+# --- Testing ---------------------------------------------------------------
+pytest>=8.3
+pytest-asyncio>=0.25
+httpx>=0.28

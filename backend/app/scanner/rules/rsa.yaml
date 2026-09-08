@@ -1,0 +1,39 @@
+rules:
+  # --- pyca/cryptography RSA keygen ---
+  - id: blindspot-rsa-keygen-cryptography
+    patterns:
+      - pattern: rsa.generate_private_key(...)
+    message: RSA key generation via pyca/cryptography
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: cryptography
+
+  # --- pyca/cryptography RSA OAEP encryption ---
+  - id: blindspot-rsa-encrypt-oaep
+    patterns:
+      - pattern: $KEY.encrypt($DATA, padding.OAEP(...))
+    message: RSA OAEP encryption via pyca/cryptography
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: encrypt
+      library: cryptography
+
+  # --- pyca/cryptography RSA key serialization ---
+  - id: blindspot-rsa-export-key
+    patterns:
+      - pattern: $KEY.private_bytes(...)
+    message: RSA private key serialization
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: other
+      library: cryptography

@@ -1,0 +1,418 @@
+{
+  "schemaVersion": "1.0",
+  "_note": [
+    "Field names and shape confirmed with the risk-engine owner (see SEEDED_REPO_TASK.md).",
+    "",
+    "Resolved question: the draft used a single `expected_risk_tier` field carrying",
+    "values like `overdue_high_risk`, `weak_crypto_today` and `unresolvable`. Those are",
+    "not one axis, they are three independent ones, and the risk engine keeps them",
+    "separate on purpose:",
+    "",
+    "  riskTier         quantum migration urgency from Mosca: overdue | transitional | low-risk",
+    "  currentlyWeak    is the construction broken TODAY, independent of quantum",
+    "  parameterStatus  did the scanner resolve the key size: resolved | unresolved | not_applicable",
+    "",
+    "MD5 is the case that proves the split matters. It is broken today, yet its Mosca",
+    "tier is low, because Grover only halves hash security. Collapsing both into one",
+    "field would lose exactly the distinction the build spec insists on.",
+    "",
+    "Field naming is camelCase to match the API wire format and Firestore schema.",
+    "",
+    "Artefacts 1-5 keep the dataLifetimeYears and criticality values from the original",
+    "seed unchanged. Artefacts 6-9 were added for BUILD SPEC section 9 / 20 algorithm",
+    "coverage (AES, 3DES, DES, SHA-1), which the seed task did not ask for.",
+    "",
+    "This file is the single source of truth. The backend tests read it directly rather",
+    "than keeping a duplicate copy, so the two cannot drift apart."
+  ],
+
+  "moscaDefaults": {
+    "migrationTimeYears": 3,
+    "quantumHorizonYears": 10,
+    "quantumHorizonSource": "Demo assumption, configurable via QUANTUM_HORIZON_YEARS"
+  },
+
+  "parameterResolutionPolicy": {
+    "_comment": [
+      "Load-bearing contract, verified against this seed before Phase 4 was written.",
+      "",
+      "Neither CASE-1 nor CASE-5 passes a literal key size. Both pass a NAME:",
+      "  high_risk_rsa.py        key_size=RECORD_KEY_SIZE    defined in the same file",
+      "  unresolvable_keygen.py  key_size=ARCHIVE_KEY_SIZE   imported from crypto_config",
+      "",
+      "To a naive extractor these are identical and the demo's central contrast",
+      "collapses. The boundary that separates them is the MODULE, not the repository."
+    ],
+    "rules": [
+      {
+        "case": "integer literal at the call site",
+        "status": "resolved",
+        "confidence": 0.98
+      },
+      {
+        "case": "name bound to a module-level integer constant in the file under analysis",
+        "status": "resolved",
+        "confidence": 0.95,
+        "rationale": "Sound, bounded static analysis. The value is visible in the file being analysed."
+      },
+      {
+        "case": "name arriving via import",
+        "status": "unresolved",
+        "confidence": 0.55,
+        "rationale": "Resolving it needs cross-module analysis the scanner does not claim to perform. Report the truth and name the unresolved parameter."
+      },
+      {
+        "case": "any other expression, e.g. config.get(...) or an attribute lookup",
+        "status": "unresolved",
+        "confidence": 0.5
+      }
+    ],
+    "mustNotDo": "Follow the import into crypto_config.py to recover 2048 for CASE-5. That would defeat the artefact and misrepresent what the scanner actually knows.",
+    "implementationNote": "Semgrep CE emits no metavariable bindings (see scannerConstraints), so parameters are extracted with Python's ast module. An ast.Constant argument IS a resolved literal and an ast.Name argument IS a symbol reference, which makes this distinction structural rather than heuristic."
+  },
+
+  "scannerConstraints": {
+    "_comment": "Verified empirically against semgrep 1.176.1 on Windows during Phase 3.",
+    "semgrepVersion": "1.176.1",
+    "emitsMetavarBindings": false,
+    "emitsMatchedSourceText": false,
+    "gaggedFields": ["lines", "fingerprint"],
+    "gaggedValue": "requires login",
+    "usableFields": ["check_id", "path", "start.line", "start.col", "start.offset", "end.line", "end.col", "end.offset"],
+    "consequence": "Semgrep LOCATES call sites. Evidence snippets must be sliced from the source using start.offset/end.offset, and parameters extracted with ast. Do not design Phase 4/5 around metavars or extra.lines.",
+    "pycryptodomeModeNote": "pycryptodome expresses modes as constants such as DES.MODE_ECB, not as modes.ECB(). Mode rules need a separate pattern per library."
+  },
+
+  "artefacts": [
+    {
+      "caseId": "CASE-1",
+      "headline": true,
+      "artefact": "overdue",
+      "file": "high_risk_rsa.py",
+      "summary": "RSA-2048 keygen and OAEP encryption of customer transaction records held for a 15 year statutory retention window.",
+      "declared": {
+        "dataLifetimeYears": 15,
+        "criticality": "high",
+        "securityGoal": "confidentiality",
+        "usage": "data_at_rest_encryption"
+      },
+      "expect": {
+        "algorithm": "RSA",
+        "parameter": "2048",
+        "parameterStatus": "resolved",
+        "primitive": "pke",
+        "artefactType": "encryption",
+        "currentlyWeak": false,
+        "severity": "none",
+        "quantumVulnerable": true,
+        "quantumThreat": "shor_breaks",
+        "moscaApplicable": true,
+        "mosca": { "x": 15, "y": 3, "z": 10, "equation": "15 + 3 > 10", "result": true },
+        "riskTier": "overdue",
+        "recommendationStrategy": "PQC",
+        "minConfidence": 0.9,
+        "parameterResolvedVia": "module_local_constant",
+        "note": "The headline case. Long-lived confidentiality plus a Shor-breakable primitive. Note that key_size is RECORD_KEY_SIZE, not a literal 2048; it resolves because that constant is defined in this same file. See parameterResolutionPolicy."
+      }
+    },
+    {
+      "caseId": "CASE-2",
+      "headline": true,
+      "artefact": "transitional",
+      "file": "transitional_tls.py",
+      "summary": "Ephemeral ECDH on P-256 deriving per-connection traffic keys for internal service-to-service links.",
+      "declared": {
+        "dataLifetimeYears": 3,
+        "criticality": "medium",
+        "securityGoal": "confidentiality",
+        "usage": "key_establishment"
+      },
+      "expect": {
+        "algorithm": "ECDH",
+        "parameter": "P-256",
+        "curve": "secp256r1",
+        "parameterStatus": "resolved",
+        "primitive": "key-agree",
+        "artefactType": "key-exchange",
+        "currentlyWeak": false,
+        "severity": "none",
+        "quantumVulnerable": true,
+        "quantumThreat": "shor_breaks",
+        "moscaApplicable": true,
+        "mosca": { "x": 3, "y": 3, "z": 10, "equation": "3 + 3 > 10", "result": false },
+        "riskTier": "transitional",
+        "recommendationStrategy": "HYBRID",
+        "minConfidence": 0.9,
+        "note": "Mosca does NOT fire: 6 > 10 is false. The tier is transitional because the primitive is Shor-breakable while the data lifetime does not yet force immediate action. Hybrid is the migration path. The recommendation must name the detected curve (P-256), not a hardcoded X25519."
+      }
+    },
+    {
+      "caseId": "CASE-3",
+      "headline": true,
+      "artefact": "low_risk",
+      "file": "low_risk_token.py",
+      "summary": "ECDSA P-256 signature over an admin console session token with an explicit 3600 second TTL.",
+      "declared": {
+        "dataLifetimeYears": 0.04,
+        "criticality": "low",
+        "securityGoal": "authenticity",
+        "usage": "session_signature"
+      },
+      "expect": {
+        "algorithm": "ECDSA",
+        "parameter": "P-256",
+        "curve": "secp256r1",
+        "parameterStatus": "resolved",
+        "primitive": "signature",
+        "artefactType": "signature",
+        "currentlyWeak": false,
+        "severity": "none",
+        "quantumVulnerable": true,
+        "quantumThreat": "shor_breaks",
+        "moscaApplicable": true,
+        "mosca": { "x": 0.04, "y": 3, "z": 10, "equation": "0.04 + 3 > 10", "result": false },
+        "riskTier": "low-risk",
+        "recommendationStrategy": "DEFER",
+        "minConfidence": 0.9,
+        "note": "Shor breaks ECDSA, yet this is genuinely low risk. Signatures are authenticity, not confidentiality, so harvest-now-decrypt-later does not apply: a signature forged in 15 years is worthless against a token that expired in an hour. This is the case that proves the tool does not mark everything urgent."
+      }
+    },
+    {
+      "caseId": "CASE-4",
+      "headline": true,
+      "artefact": "weak_crypto_today",
+      "file": "weak_crypto_md5.py",
+      "summary": "MD5 digests used to verify nightly partner import files.",
+      "declared": {
+        "dataLifetimeYears": 1,
+        "criticality": "high",
+        "securityGoal": "integrity",
+        "usage": "integrity_hash"
+      },
+      "expect": {
+        "algorithm": "MD5",
+        "parameter": null,
+        "parameterStatus": "not_applicable",
+        "primitive": "hash",
+        "artefactType": "hash",
+        "currentlyWeak": true,
+        "severity": "high",
+        "quantumVulnerable": false,
+        "quantumThreat": "grover_weakens",
+        "moscaApplicable": false,
+        "mosca": null,
+        "riskTier": "low-risk",
+        "recommendationStrategy": "REMEDIATE_NOW",
+        "minConfidence": 0.9,
+        "note": "The axis-separation case. Broken TODAY via practical collisions, so the strategy is remediate now. But its QUANTUM tier is low, because Grover only halves preimage resistance. Reporting this as a quantum finding would be wrong. The build spec is explicit: do not pretend this is merely quantum risk."
+      }
+    },
+    {
+      "caseId": "CASE-5",
+      "headline": true,
+      "artefact": "unresolvable",
+      "file": "unresolvable_keygen.py",
+      "summary": "RSA keygen for archive wrapping keys where key_size comes from crypto_config.ARCHIVE_KEY_SIZE, not a literal.",
+      "declared": {
+        "dataLifetimeYears": 10,
+        "criticality": "high",
+        "securityGoal": "confidentiality",
+        "usage": "key_generation"
+      },
+      "expect": {
+        "algorithm": "RSA",
+        "parameter": null,
+        "parameterStatus": "unresolved",
+        "unresolvedParameters": ["key_size"],
+        "primitive": "pke",
+        "artefactType": "key-exchange",
+        "currentlyWeak": false,
+        "severity": "none",
+        "quantumVulnerable": true,
+        "quantumThreat": "shor_breaks",
+        "moscaApplicable": true,
+        "mosca": { "x": 10, "y": 3, "z": 10, "equation": "10 + 3 > 10", "result": true },
+        "riskTier": "overdue",
+        "recommendationStrategy": "INVESTIGATE",
+        "maxConfidence": 0.75,
+        "parameterUnresolvedVia": "cross_module_import",
+        "note": "The honest-uncertainty case. Shor breaks RSA at any practical key size, so quantumVulnerable is certain and the tier is overdue. Only the PARAMETER is unknown, which is why confidence is capped and the strategy is investigate rather than a specific PQC parameter set: we cannot size a replacement without knowing what we are replacing. Structurally identical to CASE-1 except that ARCHIVE_KEY_SIZE arrives by import rather than being defined locally. The scanner must NOT follow that import to recover 2048."
+      }
+    },
+    {
+      "caseId": "CASE-6",
+      "headline": false,
+      "artefact": "coverage_aes",
+      "file": "field_encryption_aes.py",
+      "summary": "AES-256-GCM field sealing plus a legacy AES-256-CBC path, on data sharing the 15 year record retention window.",
+      "declared": {
+        "dataLifetimeYears": 15,
+        "criticality": "high",
+        "securityGoal": "confidentiality",
+        "usage": "data_at_rest_encryption"
+      },
+      "expect": {
+        "algorithm": "AES",
+        "parameter": "256",
+        "parameterStatus": "resolved",
+        "modes": ["gcm", "cbc"],
+        "primitive": "ae",
+        "artefactType": "encryption",
+        "currentlyWeak": false,
+        "severity": "none",
+        "quantumVulnerable": false,
+        "quantumThreat": "grover_weakens",
+        "effectiveSecurityLoss": "AES-256 reduced to roughly 128-bit security",
+        "moscaApplicable": false,
+        "mosca": null,
+        "riskTier": "low-risk",
+        "recommendationStrategy": "DEFER",
+        "minConfidence": 0.9,
+        "note": "The contrast case, and the strongest test of the risk engine. Identical dataLifetimeYears (15) and criticality (high) to CASE-1, but the opposite verdict, because AES is symmetric and Shor does not break it. If the engine reports this as overdue it is keying off lifetime alone and is wrong. Also exercises mode extraction: GCM and CBC in one file."
+      }
+    },
+    {
+      "caseId": "CASE-7",
+      "headline": false,
+      "artefact": "coverage_3des",
+      "file": "legacy_tape_3des.py",
+      "summary": "Triple DES in CBC mode encrypting archival tape segments for an offsite appliance.",
+      "declared": {
+        "dataLifetimeYears": 10,
+        "criticality": "high",
+        "securityGoal": "confidentiality",
+        "usage": "data_at_rest_encryption"
+      },
+      "expect": {
+        "algorithm": "3DES",
+        "parameter": "168",
+        "parameterStatus": "resolved",
+        "modes": ["cbc"],
+        "primitive": "block-cipher",
+        "artefactType": "encryption",
+        "currentlyWeak": true,
+        "severity": "high",
+        "quantumVulnerable": false,
+        "quantumThreat": "grover_weakens",
+        "moscaApplicable": false,
+        "mosca": null,
+        "riskTier": "low-risk",
+        "recommendationStrategy": "REMEDIATE_NOW",
+        "minConfidence": 0.85,
+        "note": "Present-day weakness: 64-bit block size invites Sweet32 birthday attacks, and NIST SP 800-131A Rev.2 disallowed 3DES after 2023. Replace regardless of any quantum timeline, so the quantum axis is not the driver."
+      }
+    },
+    {
+      "caseId": "CASE-8",
+      "headline": false,
+      "artefact": "coverage_des",
+      "file": "legacy_pin_des.py",
+      "summary": "Single DES in ECB mode in the legacy ATM PIN block translator, via pycryptodome.",
+      "declared": {
+        "dataLifetimeYears": 3,
+        "criticality": "high",
+        "securityGoal": "confidentiality",
+        "usage": "data_encryption"
+      },
+      "expect": {
+        "algorithm": "DES",
+        "parameter": "56",
+        "parameterStatus": "resolved",
+        "modes": ["ecb"],
+        "primitive": "block-cipher",
+        "artefactType": "encryption",
+        "currentlyWeak": true,
+        "severity": "critical",
+        "quantumVulnerable": false,
+        "quantumThreat": "grover_weakens",
+        "moscaApplicable": false,
+        "mosca": null,
+        "riskTier": "low-risk",
+        "recommendationStrategy": "REMEDIATE_NOW",
+        "minConfidence": 0.85,
+        "note": "Critical present-day weakness: a 56-bit key is exhaustively searchable, and ECB leaks block equality on top of that. Also the only artefact using pycryptodome rather than pyca/cryptography, so it proves detection across two different library APIs."
+      }
+    },
+    {
+      "caseId": "CASE-9",
+      "headline": false,
+      "artefact": "coverage_sha1",
+      "file": "partner_manifest_sha1.py",
+      "summary": "SHA-1 digests verifying partner drop manifests, via both hashlib and the cryptography Hash API.",
+      "declared": {
+        "dataLifetimeYears": 1,
+        "criticality": "high",
+        "securityGoal": "integrity",
+        "usage": "integrity_hash"
+      },
+      "expect": {
+        "algorithm": "SHA-1",
+        "parameter": null,
+        "parameterStatus": "not_applicable",
+        "primitive": "hash",
+        "artefactType": "hash",
+        "currentlyWeak": true,
+        "severity": "high",
+        "quantumVulnerable": false,
+        "quantumThreat": "grover_weakens",
+        "moscaApplicable": false,
+        "mosca": null,
+        "riskTier": "low-risk",
+        "recommendationStrategy": "REMEDIATE_NOW",
+        "minConfidence": 0.85,
+        "note": "Collision-broken in practice since SHAttered (2017), and collision resistance is exactly what manifest integrity depends on: a partner could publish two manifests with the same digest. Detected through two distinct APIs in one file, hashlib.sha1 and hashes.SHA1."
+      }
+    }
+  ],
+
+  "dependencyManifest": {
+    "file": "requirements.txt",
+    "expect": [
+      {
+        "package": "cryptography",
+        "version": "43.0.1",
+        "provides": ["RSA", "ECDH", "ECDSA", "AES", "3DES", "SHA-1", "MD5"],
+        "detectionMethod": "dependency_manifest",
+        "confidenceBand": "medium-high"
+      },
+      {
+        "package": "pyOpenSSL",
+        "version": "24.2.1",
+        "provides": ["RSA", "ECDH", "ECDSA", "AES", "3DES", "SHA-1", "MD5"],
+        "detectionMethod": "dependency_manifest",
+        "confidenceBand": "medium",
+        "note": "This is how OpenSSL appears in a Python dependency graph. There is no `openssl` package on PyPI; pyOpenSSL is the binding layer over the OpenSSL C library. Capability is present, but use is NOT confirmed in source, which is the point: a declared dependency proves capability, not use. Confidence must sit below the direct API-call findings."
+      },
+      {
+        "package": "pycryptodome",
+        "version": "3.21.0",
+        "provides": ["DES", "3DES", "AES", "RSA", "MD5", "SHA-1"],
+        "detectionMethod": "dependency_manifest",
+        "confidenceBand": "medium-high",
+        "note": "Use IS confirmed in source, in legacy_pin_des.py."
+      }
+    ]
+  },
+
+  "expectedTotals": {
+    "_comment": "Exact finding counts depend on rule granularity in Phase 4. These are the invariants that must hold regardless.",
+    "headlineCases": 5,
+    "coverageCases": 4,
+    "algorithmsCovered": ["RSA", "ECDH", "ECDSA", "AES", "3DES", "DES", "MD5", "SHA-1"],
+    "buildSpecSection9Algorithms": {
+      "RSA": "high_risk_rsa.py, unresolvable_keygen.py",
+      "ECC": "transitional_tls.py, low_risk_token.py",
+      "ECDSA": "low_risk_token.py",
+      "ECDH": "transitional_tls.py",
+      "AES": "field_encryption_aes.py",
+      "DES": "legacy_pin_des.py",
+      "3DES": "legacy_tape_3des.py",
+      "MD5": "weak_crypto_md5.py",
+      "SHA-1": "partner_manifest_sha1.py"
+    },
+    "riskTierDistribution": { "overdue": 2, "transitional": 1, "low-risk": 6 },
+    "currentlyWeakCount": 4,
+    "quantumSensitiveCount": 4,
+    "unresolvedParameterCount": 1
+  }
+}

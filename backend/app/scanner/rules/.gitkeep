@@ -1,0 +1,7 @@
+# Semgrep custom rules live here (Phase 4).
+#
+# One YAML file per algorithm family, e.g.:
+#   rsa.yaml, ecc.yaml, aes.yaml, des.yaml, md5.yaml, sha1.yaml
+#
+# Rules perform DISCOVERY only. They must not encode risk tiers or
+# recommendations.

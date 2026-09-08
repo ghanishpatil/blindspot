@@ -1,0 +1,66 @@
+rules:
+  # --- pyca/cryptography cipher modes ---
+  - id: blindspot-mode-cbc
+    patterns:
+      - pattern: modes.CBC(...)
+    message: CBC cipher mode
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: cbc
+      library: cryptography
+
+  - id: blindspot-mode-gcm
+    patterns:
+      - pattern: modes.GCM(...)
+    message: GCM cipher mode
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: gcm
+      library: cryptography
+
+  - id: blindspot-mode-ecb
+    patterns:
+      - pattern: modes.ECB(...)
+    message: ECB cipher mode
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: ecb
+      library: cryptography
+
+  - id: blindspot-mode-ctr
+    patterns:
+      - pattern: modes.CTR(...)
+    message: CTR cipher mode
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: ctr
+      library: cryptography
+
+  # --- pycryptodome mode constants ---
+  - id: blindspot-mode-ecb-pycryptodome
+    pattern-either:
+      - pattern: DES.MODE_ECB
+      - pattern: DES3.MODE_ECB
+      - pattern: AES.MODE_ECB
+    message: ECB cipher mode (pycryptodome)
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: ecb
+      library: pycryptodome
+
+  - id: blindspot-mode-cbc-pycryptodome
+    pattern-either:
+      - pattern: DES.MODE_CBC
+      - pattern: DES3.MODE_CBC
+      - pattern: AES.MODE_CBC
+    message: CBC cipher mode (pycryptodome)
+    languages: [python]
+    severity: INFO
+    metadata:
+      mode: cbc
+      library: pycryptodome

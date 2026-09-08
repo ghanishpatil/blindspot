@@ -1,0 +1,201 @@
+rules:
+  # ===========================================================================
+  # C / OpenSSL cryptographic API detection
+  #
+  # Covers both the legacy low-level APIs (RSA_*, EC_KEY_*, MD5_*, SHA1_*,
+  # DES_*, AES_*) and the modern EVP high-level APIs (EVP_*).
+  #
+  # Rules describe WHAT was found, never WHAT TO DO. Parameter resolution
+  # (key sizes, curves) is not attempted for C — the evidence extractor uses
+  # Python's ast module, so C findings are reported at reduced confidence with
+  # honest "parameter not resolved" state, which is the correct behaviour.
+  # ===========================================================================
+
+  # --- RSA key generation --------------------------------------------------
+  - id: blindspot-c-rsa-keygen
+    pattern-either:
+      - pattern: RSA_generate_key_ex(...)
+      - pattern: RSA_generate_key(...)
+      - pattern: EVP_RSA_gen(...)
+      - pattern: EVP_PKEY_CTX_set_rsa_keygen_bits(...)
+    message: RSA key generation (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: openssl
+
+  # --- RSA encryption / decryption -----------------------------------------
+  - id: blindspot-c-rsa-encrypt
+    pattern-either:
+      - pattern: RSA_public_encrypt(...)
+      - pattern: EVP_PKEY_encrypt(...)
+    message: RSA encryption (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: encrypt
+      library: openssl
+
+  - id: blindspot-c-rsa-decrypt
+    pattern-either:
+      - pattern: RSA_private_decrypt(...)
+      - pattern: EVP_PKEY_decrypt(...)
+    message: RSA decryption (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: decrypt
+      library: openssl
+
+  # --- Elliptic-curve key generation ---------------------------------------
+  - id: blindspot-c-ec-keygen
+    pattern-either:
+      - pattern: EC_KEY_generate_key(...)
+      - pattern: EC_KEY_new_by_curve_name(...)
+      - pattern: EVP_EC_gen(...)
+    message: Elliptic-curve key generation (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: ECC
+      primitive: unknown
+      crypto_function: keygen
+      library: openssl
+
+  # --- ECDSA signing / verification ----------------------------------------
+  - id: blindspot-c-ecdsa-sign
+    pattern-either:
+      - pattern: ECDSA_sign(...)
+      - pattern: ECDSA_do_sign(...)
+    message: ECDSA digital signature (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: sign
+      library: openssl
+
+  - id: blindspot-c-ecdsa-verify
+    pattern-either:
+      - pattern: ECDSA_verify(...)
+      - pattern: ECDSA_do_verify(...)
+    message: ECDSA signature verification (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: verify
+      library: openssl
+
+  # --- ECDH key agreement --------------------------------------------------
+  - id: blindspot-c-ecdh-derive
+    pattern-either:
+      - pattern: ECDH_compute_key(...)
+      - pattern: EVP_PKEY_derive(...)
+    message: ECDH key agreement (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: ECDH
+      primitive: key-agree
+      crypto_function: keyderive
+      library: openssl
+
+  # --- AES -----------------------------------------------------------------
+  - id: blindspot-c-aes-keygen
+    pattern-either:
+      - pattern: AES_set_encrypt_key(...)
+      - pattern: AES_set_decrypt_key(...)
+    message: AES key schedule (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: keygen
+      library: openssl
+
+  - id: blindspot-c-aes-encrypt
+    pattern-either:
+      - pattern: AES_encrypt(...)
+      - pattern: AES_cbc_encrypt(...)
+      - pattern: AES_ecb_encrypt(...)
+      - pattern: AES_ctr128_encrypt(...)
+    message: AES encryption (OpenSSL C API)
+    languages: [c]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: openssl
+
+  # --- DES (single) --------------------------------------------------------
+  - id: blindspot-c-des-encrypt
+    pattern-either:
+      - pattern: DES_ecb_encrypt(...)
+      - pattern: DES_ncbc_encrypt(...)
+      - pattern: DES_cbc_encrypt(...)
+      - pattern: DES_set_key(...)
+    message: DES usage (OpenSSL C API) — weak
+    languages: [c]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: openssl
+
+  # --- 3DES (triple) -------------------------------------------------------
+  - id: blindspot-c-3des-encrypt
+    pattern-either:
+      - pattern: DES_ede3_cbc_encrypt(...)
+      - pattern: DES_ede3_cbcm_encrypt(...)
+      - pattern: DES_ede2_cbc_encrypt(...)
+    message: Triple DES usage (OpenSSL C API) — weak
+    languages: [c]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: openssl
+
+  # --- MD5 -----------------------------------------------------------------
+  - id: blindspot-c-md5
+    pattern-either:
+      - pattern: MD5(...)
+      - pattern: MD5_Init(...)
+      - pattern: EVP_md5(...)
+    message: MD5 hash (OpenSSL C API) — weak
+    languages: [c]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: openssl
+
+  # --- SHA-1 ---------------------------------------------------------------
+  - id: blindspot-c-sha1
+    pattern-either:
+      - pattern: SHA1(...)
+      - pattern: SHA1_Init(...)
+      - pattern: EVP_sha1(...)
+    message: SHA-1 hash (OpenSSL C API) — weak
+    languages: [c]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: openssl

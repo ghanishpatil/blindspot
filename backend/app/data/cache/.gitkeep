@@ -1,0 +1,4 @@
+# Cached last-successful scan for the demo fallback mode (Phase 13).
+#
+# A cached result is always labelled as cached in the UI. It is never presented
+# as a live scan.

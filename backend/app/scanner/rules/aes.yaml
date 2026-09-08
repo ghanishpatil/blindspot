@@ -1,0 +1,53 @@
+rules:
+  # --- pyca/cryptography AES-GCM AEAD ---
+  - id: blindspot-aes-gcm-keygen
+    patterns:
+      - pattern: AESGCM.generate_key(...)
+    message: AES-GCM key generation
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: ae
+      crypto_function: keygen
+      mode: gcm
+      library: cryptography
+
+  - id: blindspot-aes-gcm-encrypt
+    patterns:
+      - pattern: AESGCM($KEY).encrypt(...)
+    message: AES-GCM authenticated encryption
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: ae
+      crypto_function: encrypt
+      mode: gcm
+      library: cryptography
+
+  - id: blindspot-aes-gcm-decrypt
+    patterns:
+      - pattern: AESGCM($KEY).decrypt(...)
+    message: AES-GCM authenticated decryption
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: ae
+      crypto_function: decrypt
+      mode: gcm
+      library: cryptography
+
+  # --- pyca/cryptography AES block cipher (CBC, CTR, etc via Cipher) ---
+  - id: blindspot-aes-cipher
+    patterns:
+      - pattern: algorithms.AES(...)
+    message: AES block cipher usage
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: cryptography

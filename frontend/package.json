@@ -1,0 +1,57 @@
+{
+  "name": "blindspot-ecdat-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Blindspot ECDAT dashboard — cryptographic discovery, CBOM, Mosca risk analysis, and PQC recommendations",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "//allowScripts": [
+    "Explicit supply-chain decision, recorded so `npm install` is deterministic",
+    "and does not exit non-zero on an unreviewed-scripts prompt.",
+    "",
+    "Both scripts were read before being denied:",
+    "  @firebase/util  - writes dist/postinstall.{js,mjs} from FIREBASE_WEBAPP_CONFIG.",
+    "                    That variable is unset here, and the shipped stubs already",
+    "                    return undefined, which is exactly what it would write. It",
+    "                    can also call firebase.googleapis.com when the variable IS",
+    "                    set, which we have no need for.",
+    "  protobufjs      - only prints a dependency version-scheme warning.",
+    "",
+    "Neither is needed to build or run this app, so neither is granted."
+  ],
+  "allowScripts": {
+    "@firebase/util": false,
+    "protobufjs": false
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "firebase": "12.18.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router-dom": "7.18.3",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "27.4.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

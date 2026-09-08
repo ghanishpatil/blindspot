@@ -1,0 +1,52 @@
+rules:
+  # --- EC key generation (covers both ECDH and ECDSA usage) ---
+  - id: blindspot-ec-keygen
+    patterns:
+      - pattern: ec.generate_private_key(...)
+    message: Elliptic curve key generation
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: ECC
+      primitive: unknown
+      crypto_function: keygen
+      library: cryptography
+
+  # --- ECDH key agreement ---
+  - id: blindspot-ecdh-exchange
+    patterns:
+      - pattern: $KEY.exchange(ec.ECDH(), ...)
+    message: ECDH key agreement
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: ECDH
+      primitive: key-agree
+      crypto_function: keyderive
+      library: cryptography
+
+  # --- ECDSA signing ---
+  - id: blindspot-ecdsa-sign
+    patterns:
+      - pattern: $KEY.sign($DATA, ec.ECDSA(...))
+    message: ECDSA digital signature
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: sign
+      library: cryptography
+
+  # --- ECDSA verification ---
+  - id: blindspot-ecdsa-verify
+    patterns:
+      - pattern: $KEY.verify($SIG, $DATA, ec.ECDSA(...))
+    message: ECDSA signature verification
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: verify
+      library: cryptography

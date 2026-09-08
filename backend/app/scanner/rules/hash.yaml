@@ -1,0 +1,65 @@
+rules:
+  # --- MD5 via hashlib ---
+  - id: blindspot-md5-hashlib
+    patterns:
+      - pattern: hashlib.md5(...)
+    message: MD5 hash via hashlib
+    languages: [python]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: hashlib
+
+  # --- MD5 via pyca/cryptography ---
+  - id: blindspot-md5-cryptography
+    patterns:
+      - pattern: hashes.MD5()
+    message: MD5 hash via cryptography
+    languages: [python]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: cryptography
+
+  # --- SHA-1 via hashlib ---
+  - id: blindspot-sha1-hashlib
+    patterns:
+      - pattern: hashlib.sha1(...)
+    message: SHA-1 hash via hashlib
+    languages: [python]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: hashlib
+
+  # --- SHA-1 via pyca/cryptography ---
+  - id: blindspot-sha1-cryptography
+    patterns:
+      - pattern: hashes.SHA1()
+    message: SHA-1 hash via cryptography
+    languages: [python]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: cryptography
+
+  # --- SHA-256 via pyca/cryptography (not weak, but detected for CBOM completeness) ---
+  - id: blindspot-sha256-cryptography
+    patterns:
+      - pattern: hashes.SHA256()
+    message: SHA-256 hash via cryptography
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: SHA-256
+      primitive: hash
+      crypto_function: digest
+      library: cryptography

@@ -1,0 +1,18 @@
+# Ledger platform runtime dependencies.
+
+# Primary crypto provider: record protection, field encryption, ECDH mesh
+# links, ECDSA token signing, legacy 3DES tape export.
+cryptography==43.0.1
+
+# OpenSSL bindings. Used for X.509 handling and certificate inspection on the
+# partner mTLS ingress, where we need lower-level access than the primary
+# provider exposes.
+pyOpenSSL==24.2.1
+
+# Legacy PIN block translator. Needed because the primary provider exposes no
+# single-DES primitive.
+pycryptodome==3.21.0
+
+# Non-crypto runtime deps.
+requests==2.32.3
+python-dateutil==2.9.0.post0

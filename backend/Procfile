@@ -1,0 +1,1 @@
+web: sh -c 'if [ -n "$FIREBASE_CREDENTIALS_B64" ]; then echo "$FIREBASE_CREDENTIALS_B64" | base64 -d > /app/sa.json; fi; uvicorn app.main:app --host 0.0.0.0 --port $PORT'

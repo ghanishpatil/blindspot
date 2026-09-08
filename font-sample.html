@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Future — Type Specimen</title>
+
+  <!--
+    This page tries to render the "New Future" font.
+
+    Because the font file isn't bundled here, it's loaded via local() — meaning
+    it will display correctly ONLY if "New Future" is installed on this machine.
+    If it isn't installed, the browser falls back to Montserrat (a close
+    geometric match) so the layout still renders.
+
+    To guarantee it shows regardless of what's installed, drop the font file in
+    the same folder and uncomment the @font-face src line below.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    @font-face {
+      font-family: 'New Future';
+      src:
+        /* Uncomment and point at your file to force-load it: */
+        /* url('./NewFuture.woff2') format('woff2'),
+           url('./NewFuture.otf') format('opentype'), */
+        local('New Future'),
+        local('NewFuture'),
+        local('New Future Regular');
+      font-weight: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #0a0e1a;
+      --panel: #141c2e;
+      --border: #1e293b;
+      --ink: #f1f5f9;
+      --muted: #94a3b8;
+      --faint: #64748b;
+      --accent: #3b82f6;
+      --new-future: 'New Future', 'Montserrat', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      padding: 48px 24px;
+      line-height: 1.4;
+    }
+
+    .wrap { max-width: 1000px; margin: 0 auto; }
+
+    header { margin-bottom: 40px; }
+    .kicker {
+      font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 8px;
+    }
+    .title { font-family: var(--new-future); font-size: 56px; font-weight: 900; letter-spacing: 0.02em; }
+    .sub { color: var(--muted); font-size: 14px; margin-top: 10px; max-width: 640px; }
+
+    .notice {
+      margin: 24px 0 40px; padding: 14px 16px; border-radius: 10px;
+      border: 1px solid #f59e0b33; background: #f59e0b12; color: #fbbf24;
+      font-size: 13px;
+    }
+
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px; margin-bottom: 20px;
+    }
+    .label {
+      font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--faint); margin-bottom: 16px;
+    }
+
+    .specimen { font-family: var(--new-future); color: var(--ink); }
+
+    .pangram-lg { font-size: 40px; font-weight: 900; letter-spacing: 0.01em; line-height: 1.15; }
+    .pangram-md { font-size: 26px; font-weight: 700; margin-top: 14px; }
+    .pangram-sm { font-size: 16px; font-weight: 400; margin-top: 14px; color: var(--muted); }
+
+    .alphabet { font-family: var(--new-future); font-weight: 700; font-size: 30px; letter-spacing: 0.06em; line-height: 1.6; }
+    .digits { font-family: var(--new-future); font-weight: 900; font-size: 30px; letter-spacing: 0.1em; margin-top: 12px; }
+
+    .sizes div { font-family: var(--new-future); font-weight: 700; line-height: 1.25; }
+    .s12 { font-size: 12px; } .s16 { font-size: 16px; } .s20 { font-size: 20px; }
+    .s28 { font-size: 28px; } .s40 { font-size: 40px; } .s64 { font-size: 64px; }
+
+    .weights div { font-family: var(--new-future); font-size: 30px; line-height: 1.5; }
+    .w400 { font-weight: 400; } .w700 { font-weight: 700; } .w900 { font-weight: 900; }
+
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .compare { grid-template-columns: 1fr; } }
+    .compare .ft { font-size: 30px; font-weight: 900; letter-spacing: 0.01em; }
+    .compare .ft-new { font-family: var(--new-future); }
+    .compare .ft-mont { font-family: 'Montserrat', sans-serif; }
+    .tag { font-size: 11px; color: var(--faint); margin-top: 8px; }
+
+    footer { color: var(--faint); font-size: 12px; margin-top: 40px; text-align: center; }
+    code { background: #0a0e1a; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="kicker">Type Specimen</div>
+      <div class="title">NEW FUTURE</div>
+      <p class="sub">
+        A sample sheet rendering the New Future typeface. If the text below looks
+        like a heavy geometric sans, the font is installed and working. If it
+        looks like Montserrat, New Future isn't installed on this machine yet.
+      </p>
+    </header>
+
+    <div class="notice">
+      Note: this page loads New Future via <code>local()</code>, so it only shows
+      if the font is installed on your system. To force it regardless, put the
+      font file next to this HTML and uncomment the <code>src: url(...)</code>
+      lines in the &lt;style&gt; block.
+    </div>
+
+    <div class="card">
+      <div class="label">Pangram</div>
+      <div class="specimen">
+        <div class="pangram-lg">THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG</div>
+        <div class="pangram-md">The quick brown fox jumps over the lazy dog</div>
+        <div class="pangram-sm">the quick brown fox jumps over the lazy dog — 1234567890</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Character Set</div>
+      <div class="alphabet">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
+      <div class="alphabet">a b c d e f g h i j k l m n o p q r s t u v w x y z</div>
+      <div class="digits">0 1 2 3 4 5 6 7 8 9 &amp; ? ! @ # % ( ) . ,</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Size Scale</div>
+      <div class="sizes">
+        <div class="s12">BLINDSPOT ECDAT — 12px</div>
+        <div class="s16">BLINDSPOT ECDAT — 16px</div>
+        <div class="s20">BLINDSPOT ECDAT — 20px</div>
+        <div class="s28">BLINDSPOT ECDAT — 28px</div>
+        <div class="s40">BLINDSPOT ECDAT — 40px</div>
+        <div class="s64">BLINDSPOT — 64px</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Weights (if the family provides them)</div>
+      <div class="weights">
+        <div class="w400">New Future Regular 400</div>
+        <div class="w700">New Future Bold 700</div>
+        <div class="w900">New Future Black 900</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">New Future vs Montserrat (closest fallback)</div>
+      <div class="compare">
+        <div>
+          <div class="ft ft-new">QUANTUM READY</div>
+          <div class="tag">New Future (or fallback if not installed)</div>
+        </div>
+        <div>
+          <div class="ft ft-mont">QUANTUM READY</div>
+          <div class="tag">Montserrat Black — for comparison</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Blindspot ECDAT · font specimen · open this file directly in your browser
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,423 @@
+[
+  {
+    "id": "crypto-rsa-2048-001",
+    "algorithm": "RSA-2048",
+    "artefact_type": "key-exchange",
+    "file": "payments/transaction_vault.py",
+    "line": 12,
+    "code_snippet": "key = RSA.generate(2048)\nprivate_key = key.export_key()",
+    "data_lifetime_years": 15,
+    "criticality": "high",
+    "confidence": "high",
+    "tier": "overdue",
+    "recommendation": {
+      "strategy": "pure_pqc",
+      "suggested_algorithm": "ML-KEM-768",
+      "algorithm": "ML-KEM-768",
+      "rationale": "Long-lived financial data exceeds the quantum-safe migration window."
+    },
+    "displayName": "RSA (2048-bit key establishment)",
+    "primitive": "pke",
+    "parameter": "2048",
+    "parameterStatus": "resolved",
+    "mode": null,
+    "curve": null,
+    "usage": "key_establishment",
+    "artefactType": "key-exchange",
+    "library": "PyCryptodome",
+    "filePath": "payments/transaction_vault.py",
+    "lineNumber": 12,
+    "unresolvedParameters": [],
+    "isQuantumSensitive": true,
+    "isCurrentlyWeak": false,
+    "riskTier": "overdue",
+    "createdAt": "2026-09-08T00:00:00Z",
+    "evidence": {
+      "filePath": "payments/transaction_vault.py",
+      "lineNumber": 12,
+      "endLineNumber": 12,
+      "codeSnippet": "key = RSA.generate(2048)\nprivate_key = key.export_key()",
+      "contextLines": [
+        "# Security Module - Transaction Vault",
+        "def initialize_vault_keys():",
+        "    key = RSA.generate(2048)",
+        "    private_key = key.export_key()",
+        "    return private_key"
+      ],
+      "detectionMethod": "semgrep_api_pattern",
+      "confidence": 0.95,
+      "confidenceLevel": "high",
+      "ruleId": "blindspot.python.rsa.generate-key"
+    },
+    "classification": {
+      "artefactType": "key-exchange",
+      "securityGoal": "confidentiality",
+      "dataLifetimeYears": 15,
+      "criticality": "high",
+      "isLongLivedTrustAnchor": false,
+      "lifetimeSource": "regulatory_default (High-value enterprise credentials)",
+      "rationale": "Key establishment protecting long-lived sensitive enterprise data (X = 15 years)."
+    },
+    "currentRisk": {
+      "isCurrentlyWeak": false,
+      "severity": "none",
+      "reason": "RSA-2048 is currently compliant with NIST SP 800-57 until 2030.",
+      "references": ["NIST SP 800-57 Part 1"]
+    },
+    "quantumRisk": {
+      "isQuantumVulnerable": true,
+      "threat": "shor_breaks",
+      "effectiveSecurityLoss": "Complete breakage via Shor's algorithm",
+      "reason": "Polynomial-time period finding completely recovers the RSA prime factors."
+    },
+    "mosca": {
+      "x": 15,
+      "y": 2,
+      "z": 8,
+      "overdue": true,
+      "equation": "15 + 2 > 8",
+      "result": true,
+      "tier": "overdue",
+      "marginYears": 9,
+      "zSource": "NIST / NSA CNSA 2.0 Timeline (2033)",
+      "applicable": true,
+      "notes": "Data lifetime (15y) + migration time (2y) exceeds quantum horizon (8y). Immediate migration required."
+    }
+  },
+  {
+    "id": "crypto-ecdh-p384-002",
+    "algorithm": "ECDH-P384",
+    "artefact_type": "key-exchange",
+    "file": "api/session_manager.py",
+    "line": 48,
+    "code_snippet": "shared_key = ecdh.derive_key(peer_public_key, P384)",
+    "data_lifetime_years": 5,
+    "criticality": "medium",
+    "confidence": "high",
+    "tier": "transitional",
+    "recommendation": {
+      "strategy": "hybrid",
+      "suggested_algorithm": "X25519 + ML-KEM-768",
+      "algorithm": "X25519 + ML-KEM-768",
+      "rationale": "Session key agreement requires hybrid PQC deployment during transitional phase."
+    },
+    "displayName": "ECDH (Elliptic Curve Diffie-Hellman P-384)",
+    "primitive": "key-agree",
+    "parameter": "384",
+    "parameterStatus": "resolved",
+    "mode": null,
+    "curve": "secp384r1",
+    "usage": "key_establishment",
+    "artefactType": "key-exchange",
+    "library": "Cryptography",
+    "filePath": "api/session_manager.py",
+    "lineNumber": 48,
+    "unresolvedParameters": [],
+    "isQuantumSensitive": true,
+    "isCurrentlyWeak": false,
+    "riskTier": "transitional",
+    "createdAt": "2026-09-08T00:00:00Z",
+    "evidence": {
+      "filePath": "api/session_manager.py",
+      "lineNumber": 48,
+      "endLineNumber": 48,
+      "codeSnippet": "shared_key = ecdh.derive_key(peer_public_key, P384)",
+      "contextLines": [
+        "# API Session Token Handler",
+        "def negotiate_session(peer_public_key):",
+        "    shared_key = ecdh.derive_key(peer_public_key, P384)",
+        "    return shared_key"
+      ],
+      "detectionMethod": "semgrep_api_pattern",
+      "confidence": 0.92,
+      "confidenceLevel": "high",
+      "ruleId": "blindspot.python.ecdh.derive-key"
+    },
+    "classification": {
+      "artefactType": "key-exchange",
+      "securityGoal": "confidentiality",
+      "dataLifetimeYears": 5,
+      "criticality": "medium",
+      "isLongLivedTrustAnchor": false,
+      "lifetimeSource": "api_session_policy",
+      "rationale": "Ephemeral API session encryption with 5-year data lifetime."
+    },
+    "currentRisk": {
+      "isCurrentlyWeak": false,
+      "severity": "none",
+      "reason": "P-384 provides 192-bit classical security.",
+      "references": ["FIPS 186-5"]
+    },
+    "quantumRisk": {
+      "isQuantumVulnerable": true,
+      "threat": "shor_breaks",
+      "effectiveSecurityLoss": "Broken by Shor's discrete log algorithm",
+      "reason": "Shor's algorithm solves elliptic curve discrete logarithm in polynomial time."
+    },
+    "mosca": {
+      "x": 5,
+      "y": 3,
+      "z": 10,
+      "overdue": false,
+      "equation": "5 + 3 <= 10",
+      "result": false,
+      "tier": "transitional",
+      "marginYears": -2,
+      "zSource": "CRQC Horizon (2035)",
+      "applicable": true,
+      "notes": "Data lifetime (5y) + migration time (3y) is within 10-year quantum horizon. Plan hybrid deployment."
+    }
+  },
+  {
+    "id": "crypto-aes-256-003",
+    "algorithm": "AES-256-GCM",
+    "artefact_type": "encryption",
+    "file": "cache/transient_store.py",
+    "line": 84,
+    "code_snippet": "cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)",
+    "data_lifetime_years": 1,
+    "criticality": "low",
+    "confidence": "high",
+    "tier": "low-risk",
+    "recommendation": {
+      "strategy": "defer",
+      "suggested_algorithm": "AES-256-GCM",
+      "algorithm": "AES-256-GCM",
+      "rationale": "Symmetric 256-bit encryption retains 128-bit quantum security against Grover's search."
+    },
+    "displayName": "AES-256 (Galois/Counter Mode)",
+    "primitive": "block-cipher",
+    "parameter": "256",
+    "parameterStatus": "resolved",
+    "mode": "gcm",
+    "curve": null,
+    "usage": "data_encryption",
+    "artefactType": "encryption",
+    "library": "PyCryptodome",
+    "filePath": "cache/transient_store.py",
+    "lineNumber": 84,
+    "unresolvedParameters": [],
+    "isQuantumSensitive": false,
+    "isCurrentlyWeak": false,
+    "riskTier": "low-risk",
+    "createdAt": "2026-09-08T00:00:00Z",
+    "evidence": {
+      "filePath": "cache/transient_store.py",
+      "lineNumber": 84,
+      "endLineNumber": 84,
+      "codeSnippet": "cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)",
+      "contextLines": [
+        "# Cache Encryption Helper",
+        "def encrypt_transient_payload(key, payload, nonce):",
+        "    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)",
+        "    return cipher.encrypt_and_digest(payload)"
+      ],
+      "detectionMethod": "semgrep_api_pattern",
+      "confidence": 0.98,
+      "confidenceLevel": "high",
+      "ruleId": "blindspot.python.aes.gcm"
+    },
+    "classification": {
+      "artefactType": "encryption",
+      "securityGoal": "confidentiality",
+      "dataLifetimeYears": 1,
+      "criticality": "low",
+      "isLongLivedTrustAnchor": false,
+      "lifetimeSource": "transient_cache_ttl",
+      "rationale": "Short-lived transient cache payload with 1-year max retention."
+    },
+    "currentRisk": {
+      "isCurrentlyWeak": false,
+      "severity": "none",
+      "reason": "AES-256-GCM is currently standard authenticated encryption.",
+      "references": ["NIST SP 800-38D"]
+    },
+    "quantumRisk": {
+      "isQuantumVulnerable": false,
+      "threat": "grover_weakens",
+      "effectiveSecurityLoss": "Reduces from 256 bits to 128 bits under Grover's algorithm",
+      "reason": "128-bit quantum security remains computationally infeasible."
+    },
+    "mosca": {
+      "x": 1,
+      "y": 1,
+      "z": 10,
+      "overdue": false,
+      "equation": "1 + 1 <= 10",
+      "result": false,
+      "tier": "low-risk",
+      "marginYears": -8,
+      "zSource": "CRQC Horizon (2035)",
+      "applicable": true,
+      "notes": "Short retention and quantum-safe 256-bit symmetric strength. No action required."
+    }
+  },
+  {
+    "id": "crypto-md5-004",
+    "algorithm": "MD5",
+    "artefact_type": "hash",
+    "file": "auth/legacy_password_hash.py",
+    "line": 32,
+    "code_snippet": "digest = hashlib.md5(password.encode()).hexdigest()",
+    "data_lifetime_years": 10,
+    "criticality": "high",
+    "confidence": "high",
+    "tier": "overdue",
+    "recommendation": {
+      "strategy": "pure_pqc",
+      "suggested_algorithm": "SHA-256 / Argon2id",
+      "algorithm": "SHA-256 / Argon2id",
+      "rationale": "MD5 is cryptographically broken under classical collision attacks. Remediate immediately."
+    },
+    "displayName": "MD5 (Message Digest 5)",
+    "primitive": "hash",
+    "parameter": null,
+    "parameterStatus": "not_applicable",
+    "mode": null,
+    "curve": null,
+    "usage": "password_hashing",
+    "artefactType": "hash",
+    "library": "hashlib",
+    "filePath": "auth/legacy_password_hash.py",
+    "lineNumber": 32,
+    "unresolvedParameters": [],
+    "isQuantumSensitive": true,
+    "isCurrentlyWeak": true,
+    "riskTier": "overdue",
+    "createdAt": "2026-09-08T00:00:00Z",
+    "evidence": {
+      "filePath": "auth/legacy_password_hash.py",
+      "lineNumber": 32,
+      "endLineNumber": 32,
+      "codeSnippet": "digest = hashlib.md5(password.encode()).hexdigest()",
+      "contextLines": [
+        "# Legacy Password Validation",
+        "def verify_legacy_user(password):",
+        "    digest = hashlib.md5(password.encode()).hexdigest()",
+        "    return digest == stored_hash"
+      ],
+      "detectionMethod": "semgrep_api_pattern",
+      "confidence": 0.99,
+      "confidenceLevel": "high",
+      "ruleId": "blindspot.python.hash.md5"
+    },
+    "classification": {
+      "artefactType": "hash",
+      "securityGoal": "integrity",
+      "dataLifetimeYears": 10,
+      "criticality": "high",
+      "isLongLivedTrustAnchor": true,
+      "lifetimeSource": "legacy_user_database",
+      "rationale": "Legacy password hash protecting user authentication databases."
+    },
+    "currentRisk": {
+      "isCurrentlyWeak": true,
+      "severity": "critical",
+      "reason": "MD5 collision resistance is completely broken since 2004.",
+      "references": ["RFC 6151", "NIST SP 800-131A"]
+    },
+    "quantumRisk": {
+      "isQuantumVulnerable": true,
+      "threat": "shor_breaks",
+      "effectiveSecurityLoss": "Broken classically and further weakened quantumly",
+      "reason": "Combination of classical collision attacks and Grover pre-image search."
+    },
+    "mosca": {
+      "x": 10,
+      "y": 2,
+      "z": 8,
+      "overdue": true,
+      "equation": "10 + 2 > 8",
+      "result": true,
+      "tier": "overdue",
+      "marginYears": 4,
+      "zSource": "CRQC Estimated Horizon (2033)",
+      "applicable": true,
+      "notes": "Classically broken hashing function protecting high-value user credentials. Immediate upgrade required."
+    }
+  },
+  {
+    "id": "crypto-ecdsa-p256-005",
+    "algorithm": "ECDSA-P256",
+    "artefact_type": "signature",
+    "file": "services/document_signer.py",
+    "line": 64,
+    "code_snippet": "signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))",
+    "data_lifetime_years": 12,
+    "criticality": "high",
+    "confidence": "high",
+    "tier": "overdue",
+    "recommendation": {
+      "strategy": "pure_pqc",
+      "suggested_algorithm": "ML-DSA-65",
+      "algorithm": "ML-DSA-65",
+      "rationale": "Digital signatures protecting long-term enterprise legal contracts (12y) exceed quantum safety horizon."
+    },
+    "displayName": "ECDSA (Elliptic Curve Digital Signature Algorithm P-256)",
+    "primitive": "signature",
+    "parameter": "256",
+    "parameterStatus": "resolved",
+    "mode": null,
+    "curve": "secp256r1",
+    "usage": "digital_signature",
+    "artefactType": "signature",
+    "library": "Cryptography",
+    "filePath": "services/document_signer.py",
+    "lineNumber": 64,
+    "unresolvedParameters": [],
+    "isQuantumSensitive": true,
+    "isCurrentlyWeak": false,
+    "riskTier": "overdue",
+    "createdAt": "2026-09-08T00:00:00Z",
+    "evidence": {
+      "filePath": "services/document_signer.py",
+      "lineNumber": 64,
+      "endLineNumber": 64,
+      "codeSnippet": "signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))",
+      "contextLines": [
+        "# Document Signing Subsystem",
+        "def sign_legal_contract(private_key, data):",
+        "    signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))",
+        "    return signature"
+      ],
+      "detectionMethod": "semgrep_api_pattern",
+      "confidence": 0.96,
+      "confidenceLevel": "high",
+      "ruleId": "blindspot.python.ecdsa.sign"
+    },
+    "classification": {
+      "artefactType": "signature",
+      "securityGoal": "authenticity",
+      "dataLifetimeYears": 12,
+      "criticality": "high",
+      "isLongLivedTrustAnchor": true,
+      "lifetimeSource": "legal_compliance_retention",
+      "rationale": "Legal document signatures requiring 12-year non-repudiation audit trail."
+    },
+    "currentRisk": {
+      "isCurrentlyWeak": false,
+      "severity": "none",
+      "reason": "ECDSA P-256 is currently compliant with FIPS 186-5.",
+      "references": ["FIPS 186-5"]
+    },
+    "quantumRisk": {
+      "isQuantumVulnerable": true,
+      "threat": "shor_breaks",
+      "effectiveSecurityLoss": "Forger can derive private key via Shor's ECDLP algorithm",
+      "reason": "Shor's algorithm allows quantum forgery of all historical signatures."
+    },
+    "mosca": {
+      "x": 12,
+      "y": 2,
+      "z": 8,
+      "overdue": true,
+      "equation": "12 + 2 > 8",
+      "result": true,
+      "tier": "overdue",
+      "marginYears": 6,
+      "zSource": "CRQC Estimated Horizon (2033)",
+      "applicable": true,
+      "notes": "Legal non-repudiation lifetime (12y) + migration time (2y) exceeds quantum threshold (8y). Upgrade to ML-DSA-65."
+    }
+  }
+]

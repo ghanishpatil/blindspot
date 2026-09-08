@@ -1,0 +1,234 @@
+"""Environment-driven configuration for the Blindspot ECDAT backend.
+
+All tunable values live here. Nothing that varies between machines or
+deployments should be hard-coded elsewhere in the codebase.
+
+Two values deserve special mention because the specification calls them out
+explicitly:
+
+``QUANTUM_HORIZON_YEARS`` (Mosca ``Z``)
+    The estimated number of years until a cryptographically relevant quantum
+    computer exists. This is an *assumption*, not a fact, so it is
+    configurable and its provenance is reported alongside every calculation.
+
+``MIGRATION_TIME_YEARS`` (Mosca ``Y``)
+    Default organisational migration time. Individual findings may override
+    this once the classifier is in place.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/app/config.py -> backend/app -> backend
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+# backend -> repository root
+REPO_ROOT = BACKEND_ROOT.parent
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from the environment / ``.env`` file."""
+
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    # --- Application ------------------------------------------------------
+    app_name: str = "Blindspot ECDAT"
+    app_version: str = "0.1.0"
+    blindspot_env: str = Field(
+        default="development",
+        description="Deployment environment: development | production.",
+    )
+
+    # Comma-separated rather than a JSON list: pydantic-settings would
+    # otherwise try to JSON-decode the raw environment string.
+    blindspot_cors_origins: str = Field(
+        default="http://127.0.0.1:5173,http://localhost:5173",
+        description="Comma-separated list of origins allowed to call the API.",
+    )
+
+    # --- Firebase ---------------------------------------------------------
+    firebase_project_id: str | None = Field(
+        default=None,
+        description="Firebase project ID.",
+    )
+    firebase_credentials_path: str | None = Field(
+        default=None,
+        description="Absolute path to the Firebase service account JSON file.",
+    )
+    firebase_storage_bucket: str | None = Field(
+        default=None,
+        description="Firebase Storage bucket, e.g. my-project.firebasestorage.app.",
+    )
+
+    auth_disabled: bool = Field(
+        default=False,
+        description=(
+            "Bypass Firebase token verification. Local development only; "
+            "refused when blindspot_env is 'production'."
+        ),
+    )
+
+    # --- Scanning ---------------------------------------------------------
+    demo_repo_path: str = Field(
+        default=str(REPO_ROOT / "demo-repo"),
+        description="Path to the seeded repository that the demo scans.",
+    )
+    semgrep_path: str = Field(
+        default="semgrep",
+        description="Semgrep executable. Override if it is not on PATH.",
+    )
+    semgrep_timeout_seconds: int = Field(
+        default=120,
+        ge=1,
+        description="Hard timeout for a single semgrep invocation.",
+    )
+
+    # --- Mosca risk model -------------------------------------------------
+    quantum_horizon_years: float = Field(
+        default=10.0,
+        gt=0,
+        description="Mosca Z: years until a cryptographically relevant quantum computer.",
+    )
+    quantum_horizon_source: str = Field(
+        default="Demo assumption (configurable via QUANTUM_HORIZON_YEARS)",
+        description="Provenance string reported with every Mosca calculation.",
+    )
+    migration_time_years: float = Field(
+        default=3.0,
+        gt=0,
+        description="Mosca Y: default organisational migration time in years.",
+    )
+
+    # --- Named Z presets --------------------------------------------------
+    # DEMO_REQUIREMENTS §4.4 requires at least one alternate Z source.
+    # These are named regulatory/research timelines a demo can switch between
+    # to show the same findings shifting tiers under different assumptions.
+    # The active Z is always QUANTUM_HORIZON_YEARS; these are reference values
+    # available to the UI and the recommend/risk stages.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def z_presets(self) -> list[dict[str, object]]:
+        """Named Z presets for the dashboard timeline selector."""
+        current_year = 2026
+        return [
+            {
+                "name": "Demo default",
+                "z": self.quantum_horizon_years,
+                "targetYear": current_year + self.quantum_horizon_years,
+                "source": self.quantum_horizon_source,
+            },
+            {
+                "name": "India CII — Category A (sensitive infra)",
+                "z": max(1, 2027 - current_year),
+                "targetYear": 2027,
+                "source": "India MeitY/CII PQC advisory 2027 deadline for Category A systems",
+            },
+            {
+                "name": "India CII — Category B",
+                "z": max(2, 2028 - current_year),
+                "targetYear": 2028,
+                "source": "India MeitY/CII PQC advisory 2028 deadline for Category B systems",
+            },
+            {
+                "name": "India CII — Category C",
+                "z": max(3, 2029 - current_year),
+                "targetYear": 2029,
+                "source": "India MeitY/CII PQC advisory 2029 deadline for Category C systems",
+            },
+            {
+                "name": "NIST IR 8547 — 2030 deprecation",
+                "z": max(4, 2030 - current_year),
+                "targetYear": 2030,
+                "source": "NIST IR 8547 recommendation to deprecate classical asymmetric by 2030",
+            },
+            {
+                "name": "NIST IR 8547 — 2035 disallow",
+                "z": max(9, 2035 - current_year),
+                "targetYear": 2035,
+                "source": "NIST IR 8547 recommendation to disallow classical asymmetric by 2035",
+            },
+            {
+                "name": "CRQC mid-range estimate",
+                "z": 15.0,
+                "targetYear": current_year + 15,
+                "source": "Mid-range expert survey estimate for fault-tolerant quantum computer",
+            },
+        ]
+
+    # --- Artefacts / fallback --------------------------------------------
+    artifacts_dir: str = Field(
+        default=str(BACKEND_ROOT / "artifacts"),
+        description="Local directory for generated CBOM and report files.",
+    )
+    fallback_cache_path: str = Field(
+        default=str(BACKEND_ROOT / "app" / "data" / "cache" / "last_scan.json"),
+        description="Cached last-successful scan used by the demo fallback mode.",
+    )
+
+    # --- Derived values ---------------------------------------------------
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cors_origins(self) -> list[str]:
+        """CORS origins as a cleaned list."""
+        return [
+            origin.strip()
+            for origin in self.blindspot_cors_origins.split(",")
+            if origin.strip()
+        ]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_production(self) -> bool:
+        return self.blindspot_env.strip().lower() == "production"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def firebase_configured(self) -> bool:
+        """True when enough Firebase configuration exists to initialise Admin SDK."""
+        if not self.firebase_project_id:
+            return False
+        if not self.firebase_credentials_path:
+            return False
+        return Path(self.firebase_credentials_path).expanduser().is_file()
+
+    @property
+    def demo_repo(self) -> Path:
+        return Path(self.demo_repo_path).expanduser().resolve()
+
+    @property
+    def artifacts(self) -> Path:
+        return Path(self.artifacts_dir).expanduser().resolve()
+
+    @property
+    def fallback_cache(self) -> Path:
+        return Path(self.fallback_cache_path).expanduser().resolve()
+
+    @property
+    def credentials_file(self) -> Path | None:
+        if not self.firebase_credentials_path:
+            return None
+        return Path(self.firebase_credentials_path).expanduser().resolve()
+
+    def auth_bypass_allowed(self) -> bool:
+        """Auth may only be bypassed outside production."""
+        return self.auth_disabled and not self.is_production
+
+    def ensure_directories(self) -> None:
+        """Create local directories the application writes to."""
+        self.artifacts.mkdir(parents=True, exist_ok=True)
+        self.fallback_cache.parent.mkdir(parents=True, exist_ok=True)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Cached settings accessor, suitable for use as a FastAPI dependency."""
+    return Settings()

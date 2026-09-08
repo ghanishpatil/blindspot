@@ -1,0 +1,26 @@
+rules:
+  # --- pyca/cryptography TripleDES ---
+  - id: blindspot-3des-cipher
+    patterns:
+      - pattern: algorithms.TripleDES(...)
+    message: Triple DES block cipher usage
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: cryptography
+
+  # --- pycryptodome single DES ---
+  - id: blindspot-des-pycryptodome
+    patterns:
+      - pattern: DES.new(...)
+    message: Single DES usage via pycryptodome
+    languages: [python]
+    severity: INFO
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: pycryptodome
