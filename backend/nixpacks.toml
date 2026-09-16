@@ -1,0 +1,14 @@
+# Nixpacks build configuration for the Blindspot ECDAT backend.
+#
+# The only thing we add on top of Nixpacks' auto-detected Python build is git:
+# repository-URL scans clone the target with `git clone`, and the Python image
+# does not ship git by default. Without this, URL scans fail with
+# "git executable not found (configured as 'git')".
+#
+# `aptPkgs` is additive — it installs system packages in the setup phase
+# alongside the auto-detected Python toolchain, so it does not disturb the
+# existing requirements.txt install, semgrep, .python-version, or the Procfile
+# start command.
+
+[phases.setup]
+aptPkgs = ["git"]
