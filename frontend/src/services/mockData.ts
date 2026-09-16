@@ -1,4 +1,4 @@
-import type { Finding, HealthResponse, ScanResponse } from '@/types';
+import type { Finding, HealthResponse, ScanResponse, TlsScanResult } from '@/types';
 
 export const DEMO_PLANTED_FINDINGS: Finding[] = [
   {
@@ -20,6 +20,8 @@ export const DEMO_PLANTED_FINDINGS: Finding[] = [
     unresolvedParameters: [],
     isQuantumSensitive: true,
     isCurrentlyWeak: false,
+    isHndlExposed: true,
+    needsVerification: false,
     riskTier: 'overdue',
     createdAt: new Date().toISOString(),
     evidence: {
@@ -108,6 +110,8 @@ export const DEMO_PLANTED_FINDINGS: Finding[] = [
     unresolvedParameters: [],
     isQuantumSensitive: true,
     isCurrentlyWeak: false,
+    isHndlExposed: false,
+    needsVerification: false,
     riskTier: 'transitional',
     createdAt: new Date().toISOString(),
     evidence: {
@@ -195,6 +199,8 @@ export const DEMO_PLANTED_FINDINGS: Finding[] = [
     unresolvedParameters: [],
     isQuantumSensitive: false,
     isCurrentlyWeak: true,
+    isHndlExposed: false,
+    needsVerification: false,
     riskTier: 'overdue',
     createdAt: new Date().toISOString(),
     evidence: {
@@ -281,6 +287,8 @@ export const DEMO_PLANTED_FINDINGS: Finding[] = [
     unresolvedParameters: [],
     isQuantumSensitive: true,
     isCurrentlyWeak: false,
+    isHndlExposed: false,
+    needsVerification: false,
     riskTier: 'low-risk',
     createdAt: new Date().toISOString(),
     evidence: {
@@ -367,6 +375,8 @@ export const DEMO_PLANTED_FINDINGS: Finding[] = [
     unresolvedParameters: ['key_size'],
     isQuantumSensitive: true,
     isCurrentlyWeak: false,
+    isHndlExposed: true,
+    needsVerification: true,
     riskTier: 'overdue',
     createdAt: new Date().toISOString(),
     evidence: {
@@ -475,6 +485,8 @@ export const DEMO_SCAN_RESPONSE: ScanResponse = {
     transitional: 1,
     lowRisk: 1,
     currentWeakCrypto: 1,
+    hndlExposed: 2,
+    needsVerification: 1,
     unresolvedParameters: 1,
     byAlgorithm: {
       'RSA-2048': 1,
@@ -549,3 +561,29 @@ export const DEMO_CBOM_JSON = JSON.stringify(
   null,
   2,
 );
+
+/**
+ * A real-shaped TLS scan result used as a clearly-labelled fallback when a live
+ * probe cannot reach the target (e.g. restricted demo-room network). It is
+ * always presented as "sample", never as a fresh live scan.
+ */
+export const DEMO_TLS_RESULT: TlsScanResult = {
+  host: 'example.com',
+  port: 443,
+  protocol: 'TLSv1.3',
+  protocolSecure: true,
+  cipherSuite: 'TLS_AES_256_GCM_SHA384',
+  cipherBits: 256,
+  certificate: {
+    subject: 'CN=example.com',
+    issuer: 'CN=DigiCert Global G3 TLS ECC SHA384 2020 CA1',
+    notAfter: '2026-03-01T23:59:59Z',
+    expired: false,
+    signatureAlgorithm: 'ecdsa-with-SHA384',
+    keyType: 'ECDSA',
+    keyBits: 256,
+    curve: 'secp256r1',
+  },
+  notes: [],
+  findings: [DEMO_PLANTED_FINDINGS[3]],
+};

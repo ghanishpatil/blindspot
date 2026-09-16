@@ -28,9 +28,9 @@ async def export_cbom(
     """Return the CBOM for the last scan."""
     import json
 
-    from app.api.scan import get_last_scan_data
+    from app.api.scan import get_last_scan_for
 
-    _, _, cbom_json = get_last_scan_data()
+    _, _, cbom_json = get_last_scan_for(user)
     if cbom_json is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

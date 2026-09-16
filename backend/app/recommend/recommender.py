@@ -26,7 +26,7 @@ import logging
 
 from app.models.asset import CryptoUsage
 from app.models.finding import Classification, Finding
-from app.models.recommendation import MigrationStrategy, Recommendation
+from app.models.recommendation import CostProfile, MigrationStrategy, Recommendation
 from app.models.risk import CurrentRisk, MoscaAssessment, QuantumRisk, RiskTier
 
 logger = logging.getLogger(__name__)
@@ -97,6 +97,116 @@ _REMEDIATION_TARGETS: dict[str, dict] = {
         "rationale": "Triple DES has 64-bit blocks vulnerable to Sweet32. Replace with AES-256.",
     },
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Published PQC artefact sizes (bytes) — the honest "cost" signal
+# ═══════════════════════════════════════════════════════════════════════════
+# ML-KEM sizes from NIST FIPS 203; ML-DSA sizes from NIST FIPS 204. These are
+# standardised parameter sizes, not measured latency.
+_KEM_SIZES: dict[str, dict[str, int]] = {
+    "ML-KEM-512": {"pk": 800, "ct": 768, "sk": 1632},
+    "ML-KEM-768": {"pk": 1184, "ct": 1088, "sk": 2400},
+    "ML-KEM-1024": {"pk": 1568, "ct": 1568, "sk": 3168},
+}
+_SIG_SIZES: dict[str, dict[str, int]] = {
+    "ML-DSA-44": {"pk": 1312, "sig": 2420, "sk": 2560},
+    "ML-DSA-65": {"pk": 1952, "sig": 3309, "sk": 4032},
+    "ML-DSA-87": {"pk": 2592, "sig": 4627, "sk": 4896},
+}
+
+# Approximate classical sizes being replaced (bytes). Coarse, labelled approximate.
+_CLASSICAL_KEY_BYTES: dict[str, int] = {
+    "RSA": 256,   # RSA-2048 modulus; scaled below by key size when known
+    "ECDH": 65,   # uncompressed P-256 point
+    "ECC": 65,
+    "ECDSA": 65,
+    "DH": 256,
+}
+_CLASSICAL_SIG_BYTES: dict[str, int] = {
+    "RSA": 256,
+    "ECDSA": 72,  # DER-encoded P-256 signature (approx)
+}
+
+
+def _classical_key_bytes(finding: Finding) -> int | None:
+    """Approximate classical public-key size for the finding's algorithm."""
+    algo = finding.algorithm
+    base = _CLASSICAL_KEY_BYTES.get(algo)
+    if base is None:
+        return None
+    # Scale RSA by the resolved modulus size when we know it (2048 → 256 B, etc.).
+    if algo in ("RSA", "DH") and finding.parameter and finding.parameter.isdigit():
+        return max(1, int(finding.parameter) // 8)
+    return base
+
+
+def _cost_band(largest_bytes: int) -> str:
+    """Coarse cost band from the largest PQC artefact size."""
+    if largest_bytes >= 2400:
+        return "high"
+    if largest_bytes >= 1000:
+        return "moderate"
+    return "low"
+
+
+def _build_cost_profile(
+    pqc_component: str, finding: Finding, *, is_signature: bool, hybrid: bool
+) -> CostProfile | None:
+    """Build a size/cost profile for a PQC target, versus the classical algorithm."""
+    table = _SIG_SIZES if is_signature else _KEM_SIZES
+    sizes = table.get(pqc_component)
+    if sizes is None:
+        return None
+
+    source = "NIST FIPS 204" if is_signature else "NIST FIPS 203"
+    classical_key = _classical_key_bytes(finding)
+
+    if is_signature:
+        pqc_main = sizes["sig"]
+        classical_sig = _CLASSICAL_SIG_BYTES.get(finding.algorithm)
+        ratio = f"~{pqc_main / classical_sig:.0f}x" if classical_sig else "substantially larger"
+        summary = (
+            f"{pqc_component} signature is {pqc_main} B"
+            + (f" vs ~{classical_sig} B for {finding.display_name}" if classical_sig else "")
+            + f" ({ratio}); public key {sizes['pk']} B. "
+            + ("Hybrid carries both a classical and a PQC signature. " if hybrid else "")
+            + "Size drives bandwidth/storage cost."
+        )
+        largest = max(pqc_main, sizes["pk"])
+        return CostProfile(
+            target=pqc_component,
+            public_key_bytes=sizes["pk"],
+            signature_bytes=pqc_main,
+            private_key_bytes=sizes.get("sk"),
+            classical_signature_bytes=classical_sig,
+            classical_public_key_bytes=classical_key,
+            relative_cost=_cost_band(largest),
+            size_summary=summary,
+            sources=[source],
+        )
+
+    # KEM
+    pqc_main = sizes["ct"]
+    ratio = f"~{sizes['pk'] / classical_key:.1f}x" if classical_key else "substantially larger"
+    summary = (
+        f"{pqc_component} public key is {sizes['pk']} B"
+        + (f" vs ~{classical_key} B for {finding.display_name}" if classical_key else "")
+        + f" ({ratio}); ciphertext {sizes['ct']} B. "
+        + ("Hybrid sends a classical share plus the PQC key share. " if hybrid else "")
+        + "Larger handshakes mean more bandwidth per connection."
+    )
+    largest = max(sizes["pk"], sizes["ct"])
+    return CostProfile(
+        target=pqc_component,
+        public_key_bytes=sizes["pk"],
+        ciphertext_bytes=sizes["ct"],
+        private_key_bytes=sizes.get("sk"),
+        classical_public_key_bytes=classical_key,
+        relative_cost=_cost_band(largest),
+        size_summary=summary,
+        sources=[source],
+    )
 
 
 def recommend(finding: Finding) -> Recommendation:
@@ -177,6 +287,8 @@ def _recommend_pqc(finding: Finding) -> Recommendation:
     pqc_algo = targets.get("pqc", "ML-KEM-768")
     pqc_set = targets.get("pqc_set", pqc_algo)
     refs = targets.get("references", [])
+    is_sig = _is_signature_usage(usage)
+    cost = _build_cost_profile(pqc_algo, finding, is_signature=is_sig, hybrid=False)
 
     usage_label = usage.value.replace("_", " ")
     return Recommendation(
@@ -197,6 +309,7 @@ def _recommend_pqc(finding: Finding) -> Recommendation:
             f"Verify {pqc_algo} is supported by your deployment targets.",
             "Plan for larger key/ciphertext sizes in protocol buffers and storage.",
         ],
+        cost_profile=cost,
     )
 
 
@@ -223,6 +336,8 @@ def _recommend_hybrid(finding: Finding) -> Recommendation:
 
     hybrid_set = targets.get("hybrid_set", pqc_component)
     refs = targets.get("references", [])
+    is_sig = _is_signature_usage(usage)
+    cost = _build_cost_profile(pqc_component, finding, is_signature=is_sig, hybrid=True)
 
     usage_label = usage.value.replace("_", " ")
     return Recommendation(
@@ -243,6 +358,7 @@ def _recommend_hybrid(finding: Finding) -> Recommendation:
             "Hybrid mode increases handshake/signature size but provides defense in depth.",
             "Both components must be validated independently.",
         ],
+        cost_profile=cost,
     )
 
 

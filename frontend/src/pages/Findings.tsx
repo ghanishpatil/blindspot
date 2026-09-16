@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { FindingTable } from '@/components/FindingTable';
 import { Icon } from '@/components/Icon';
-import { cbomExportUrl, fetchFindings } from '@/services/api';
+import { downloadCbom, fetchFindings } from '@/services/api';
 import { DEMO_PLANTED_FINDINGS } from '@/services/mockData';
 import type { Finding } from '@/types';
 
@@ -28,15 +28,14 @@ export default function Findings() {
           </p>
         </div>
 
-        <a
-          href={cbomExportUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => void downloadCbom()}
           className="flex items-center gap-2 rounded-lg border border-[#7DB7E8]/40 bg-[#7DB7E8]/10 px-4 py-2 text-xs font-semibold text-[#7DB7E8] transition-colors hover:bg-[#7DB7E8]/20"
         >
           <Icon name="download" size={14} />
           <span>Export CBOM</span>
-        </a>
+        </button>
       </div>
 
       {loading ? (

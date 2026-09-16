@@ -186,3 +186,28 @@
 }
 
 
+
+/* ---------------------------------------------------------------------------
+   Scrollable card body
+   ---------------------------------------------------------------------------
+   Long lists inside cards should not force the whole page to scroll. Any
+   element with `.card-scroll` becomes an independent scroll region with a
+   subtle themed scrollbar. Height variants let each card cap itself sensibly.
+*/
+.card-scroll {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+.card-scroll-sm { max-height: 320px; }
+.card-scroll-md { max-height: 460px; }
+.card-scroll-lg { max-height: 640px; }
+.card-scroll-vh { max-height: 65vh; }
+
+.card-scroll::-webkit-scrollbar { width: 6px; }
+.card-scroll::-webkit-scrollbar-track { background: transparent; }
+.card-scroll::-webkit-scrollbar-thumb {
+  background: #222B35;
+  border-radius: 3px;
+}
+.card-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }

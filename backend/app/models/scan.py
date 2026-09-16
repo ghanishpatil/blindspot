@@ -44,6 +44,22 @@ class ScanSummary(BlindspotModel):
     transitional: int = Field(default=0, ge=0)
     low_risk: int = Field(default=0, ge=0)
     current_weak_crypto: int = Field(default=0, ge=0)
+    hndl_exposed: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Confidentiality findings exposed to harvest-now-decrypt-later: "
+            "quantum-vulnerable and overdue under Mosca."
+        ),
+    )
+    needs_verification: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Findings flagged for manual review: low detection confidence or "
+            "an unresolved parameter the risk model depends on."
+        ),
+    )
     unresolved_parameters: int = Field(
         default=0, ge=0, description="Findings where a parameter could not be resolved."
     )
@@ -59,9 +75,34 @@ class ScanRequest(BlindspotModel):
     project_id: str | None = Field(
         default=None, description="Target project. Defaults to the demo project."
     )
+    repository_url: str | None = Field(
+        default=None,
+        description=(
+            "Remote git repository URL (HTTPS, allowlisted host) to clone and "
+            "scan. Takes precedence over repository_path for LIVE scans."
+        ),
+    )
     repository_path: str | None = Field(
         default=None,
-        description="Override the scan target. Defaults to the seeded demo repository.",
+        description=(
+            "Local filesystem path to scan. Development use; deployed scans use "
+            "repository_url. Defaults to the seeded demo repository."
+        ),
+    )
+    image_ref: str | None = Field(
+        default=None,
+        description=(
+            "Container image reference (e.g. 'python:3.11-slim') to pull with a "
+            "host container CLI and scan. Layers are flattened and run through "
+            "the same scanners as a repository."
+        ),
+    )
+    image_archive_path: str | None = Field(
+        default=None,
+        description=(
+            "Local path to a saved image archive ('docker save' / OCI "
+            "docker-archive tarball) to scan. Development use only."
+        ),
     )
     mode: ScanMode = Field(
         default=ScanMode.LIVE,

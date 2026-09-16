@@ -38,6 +38,8 @@ export type ArtefactType =
   | 'key-derivation'
   | 'random'
   | 'certificate'
+  | 'hardware-module'
+  | 'cloud-service'
   | 'unknown';
 
 export type CryptoUsage =
@@ -68,6 +70,9 @@ export type DetectionMethod =
   | 'semgrep_string_match'
   | 'dependency_manifest'
   | 'config_inference'
+  | 'tls_probe'
+  | 'binary_signature'
+  | 'infra_declaration'
   | 'unknown';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -158,6 +163,21 @@ export interface MoscaAssessment {
   notes: string | null;
 }
 
+/** Published FIPS parameter sizes for a PQC target — the honest "cost" signal. */
+export interface CostProfile {
+  target: string;
+  publicKeyBytes: number | null;
+  ciphertextBytes: number | null;
+  signatureBytes: number | null;
+  privateKeyBytes: number | null;
+  classicalPublicKeyBytes: number | null;
+  classicalSignatureBytes: number | null;
+  relativeCost: string;
+  sizeSummary: string;
+  basis: string;
+  sources: string[];
+}
+
 export interface Recommendation {
   strategy: MigrationStrategy;
   algorithm: string;
@@ -169,6 +189,7 @@ export interface Recommendation {
   migrationNotes: string[];
   references: string[];
   isQuantumRecommendation: boolean;
+  costProfile?: CostProfile | null;
 }
 
 export interface Finding {
@@ -201,6 +222,10 @@ export interface Finding {
 
   isQuantumSensitive: boolean;
   isCurrentlyWeak: boolean;
+  /** Confidentiality + quantum-vulnerable + overdue: harvest-now-decrypt-later. */
+  isHndlExposed: boolean;
+  /** Low detection confidence or an unresolved parameter — flag for manual review. */
+  needsVerification: boolean;
   createdAt: string;
 }
 
@@ -220,6 +245,8 @@ export interface ScanSummary {
   transitional: number;
   lowRisk: number;
   currentWeakCrypto: number;
+  hndlExposed: number;
+  needsVerification: number;
   unresolvedParameters: number;
   byAlgorithm: Record<string, number>;
   byArtefactType: Record<string, number>;
@@ -229,7 +256,12 @@ export interface ScanSummary {
 
 export interface ScanRequest {
   projectId?: string;
+  repositoryUrl?: string;
   repositoryPath?: string;
+  /** Container image reference to pull (via a host container CLI) and scan. */
+  imageRef?: string;
+  /** Local saved image archive (docker save / OCI). Development only. */
+  imageArchivePath?: string;
   mode?: ScanMode;
 }
 
@@ -302,4 +334,134 @@ export interface NotImplementedDetail {
   phase: string;
   message: string;
   implemented: false;
+}
+
+
+// ---------------------------------------------------------------------------
+// Migration Roadmap (hero)
+// ---------------------------------------------------------------------------
+
+/** One finding placed in the migration plan. Mirrors backend RoadmapItem. */
+export interface RoadmapItem {
+  findingId: string;
+  displayName: string;
+  algorithm: string;
+  filePath: string;
+  lineNumber: number | null;
+  strategy: MigrationStrategy;
+  currentAlgorithm: string;
+  targetAlgorithm: string;
+  parameterSet: string | null;
+  riskTier: RiskTier | null;
+  criticality: string | null;
+  priorityScore: number;
+  blastRadius: number;
+  effort: string;
+  costBand: string;
+  rationale: string;
+  isCurrentWeakness: boolean;
+}
+
+/** An ordered group of roadmap items sharing a migration strategy. */
+export interface MigrationWave {
+  key: string;
+  order: number;
+  title: string;
+  description: string;
+  strategy: MigrationStrategy;
+  items: RoadmapItem[];
+  itemCount: number;
+}
+
+/** The full prioritized, costed migration plan for a scan. */
+export interface MigrationRoadmap {
+  scanId: string | null;
+  generatedAt: string;
+  totalItems: number;
+  waves: MigrationWave[];
+  summary: Record<string, number>;
+}
+
+// ---------------------------------------------------------------------------
+// Compliance Sensitivity (re-tier findings under alternate quantum horizons)
+// ---------------------------------------------------------------------------
+
+/** A named quantum horizon (regulatory deadline or research estimate). */
+export interface CompliancePreset {
+  name: string;
+  z: number;
+  targetYear: number;
+  source: string;
+}
+
+/** One finding's Mosca urgency under one preset's Z. */
+export interface ComplianceTier {
+  tier: RiskTier;
+  applicable: boolean;
+  x: number;
+  y: number;
+  z: number;
+  equation: string;
+  marginYears: number;
+}
+
+/** A finding with its tier under every preset, keyed by preset name. */
+export interface ComplianceFinding {
+  findingId: string;
+  displayName: string;
+  algorithm: string;
+  filePath: string;
+  lineNumber: number | null;
+  criticality: string | null;
+  isQuantumVulnerable: boolean;
+  baselineTier: RiskTier;
+  tiersByPreset: Record<string, ComplianceTier>;
+}
+
+/** Tier counts for all findings under one preset. */
+export interface ComplianceSummary {
+  overdue: number;
+  transitional: number;
+  lowRisk: number;
+  notApplicable: number;
+  total: number;
+  overdueDelta: number;
+}
+
+/** The full compliance-sensitivity matrix for one scan. */
+export interface ComplianceEvaluation {
+  scanId: string | null;
+  generatedAt: string;
+  baselinePresetName: string;
+  totalFindings: number;
+  presets: CompliancePreset[];
+  findings: ComplianceFinding[];
+  summaryByPreset: Record<string, ComplianceSummary>;
+}
+
+// ---------------------------------------------------------------------------
+// Live TLS / certificate scan
+// ---------------------------------------------------------------------------
+
+export interface TlsCertificate {
+  subject: string;
+  issuer: string;
+  notAfter: string;
+  expired: boolean;
+  signatureAlgorithm: string;
+  keyType: string;
+  keyBits: number | null;
+  curve: string | null;
+}
+
+export interface TlsScanResult {
+  host: string;
+  port: number;
+  protocol: string;
+  protocolSecure: boolean;
+  cipherSuite: string | null;
+  cipherBits: number | null;
+  certificate: TlsCertificate;
+  notes: string[];
+  findings: Finding[];
 }

@@ -53,6 +53,24 @@ class DetectionMethod(str, Enum):
     CONFIG_INFERENCE = "config_inference"
     """Inferred from configuration rather than observed in code."""
 
+    TLS_PROBE = "tls_probe"
+    """Observed live over the network from a TLS handshake / certificate."""
+
+    BINARY_SIGNATURE = "binary_signature"
+    """Fingerprint match against a compiled binary (constants, OIDs, strings).
+
+    Heuristic by construction — never presented with the same certainty as an
+    AST-confirmed source finding. Confidence is set at the low band so these
+    findings automatically route to the manual-verification surface.
+    """
+
+    INFRA_DECLARATION = "infra_declaration"
+    """Declared reference to an HSM / PKCS#11 module or cloud KMS in IaC /
+    configuration / SDK code. Attests that a key-management surface exists —
+    NOT what algorithms it actually contains. Findings are marked with an
+    unresolved parameter so they route to INVESTIGATE.
+    """
+
     UNKNOWN = "unknown"
 
 
@@ -229,6 +247,48 @@ class Finding(NormalizedFinding):
         """True when the cryptography is already broken today."""
         return bool(self.current_risk and self.current_risk.is_currently_weak)
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_hndl_exposed(self) -> bool:
+        """Harvest-Now-Decrypt-Later exposure.
+
+        An attacker can record ciphertext today and decrypt it once a
+        cryptographically relevant quantum computer exists. That is a genuine
+        threat only when all three hold:
+
+        1. the cryptography protects *confidentiality* — recording a signature
+           or MAC to forge later gains nothing;
+        2. it is *quantum-vulnerable* (Shor breaks it), so harvesting pays off;
+        3. the data must stay secret *past* the quantum horizon — Mosca says
+           migration is overdue — so data captured today is still sensitive
+           when decryption becomes feasible.
+
+        Derived purely from fields the pipeline already computes; it asserts
+        nothing new about the finding.
+        """
+        if not (
+            self.classification
+            and self.classification.security_goal == SecurityGoal.CONFIDENTIALITY
+        ):
+            return False
+        if not (self.quantum_risk and self.quantum_risk.is_quantum_vulnerable):
+            return False
+        return self.risk_tier == RiskTier.OVERDUE
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def needs_verification(self) -> bool:
+        """True when a human should double-check this finding before acting.
+
+        Either the detection confidence is low, or a parameter the risk model
+        depends on could not be resolved. Surfacing this is a deliberate trust
+        signal: the tool states what it is unsure about instead of presenting
+        every finding with equal, unearned certainty.
+        """
+        if self.parameter_status == ParameterStatus.UNRESOLVED:
+            return True
+        return self.evidence.confidence_level == ConfidenceLevel.LOW
+
     def to_firestore_document(self) -> dict[str, Any]:
         """Flatten to the Firestore ``findings/{findingId}`` shape.
 
@@ -271,5 +331,8 @@ class Finding(NormalizedFinding):
             "rationale": recommendation.rationale if recommendation else None,
             "isQuantumSensitive": self.is_quantum_sensitive,
             "isCurrentlyWeak": self.is_currently_weak,
+            "isHndlExposed": self.is_hndl_exposed,
+            "needsVerification": self.needs_verification,
+            "confidenceLevel": self.evidence.confidence_level.value,
             "createdAt": self.created_at.isoformat(),
         }

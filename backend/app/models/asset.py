@@ -108,6 +108,12 @@ class ArtefactType(str, Enum):
     KEY_DERIVATION = "key-derivation"
     RANDOM = "random"
     CERTIFICATE = "certificate"
+    HARDWARE_MODULE = "hardware-module"
+    """A hardware security module or PKCS#11 provider (Luna, nCipher, YubiHSM, SoftHSM, ...)."""
+
+    CLOUD_SERVICE = "cloud-service"
+    """A managed cryptographic cloud service (AWS KMS, GCP KMS, Azure Key Vault, ...)."""
+
     UNKNOWN = "unknown"
 
 

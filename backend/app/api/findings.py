@@ -22,9 +22,9 @@ async def list_findings(
     project_id: str | None = Query(default=None, alias="projectId"),
 ) -> list[dict]:
     """Return findings from the last scan."""
-    from app.api.scan import get_last_scan_data
+    from app.api.scan import get_last_scan_for
 
-    _, findings, _ = get_last_scan_data()
+    _, findings, _ = get_last_scan_for(user)
     if findings is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -44,9 +44,9 @@ async def list_findings(
 )
 async def get_finding(finding_id: str, user: CurrentUser) -> dict:
     """Return a single finding including evidence, risk, and recommendation."""
-    from app.api.scan import get_last_scan_data
+    from app.api.scan import get_last_scan_for
 
-    _, findings, _ = get_last_scan_data()
+    _, findings, _ = get_last_scan_for(user)
     if findings is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

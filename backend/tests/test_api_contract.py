@@ -79,6 +79,29 @@ def test_health_is_public(client: TestClient) -> None:
     assert client.get("/api/health").status_code == 200
 
 
+def test_scan_rejects_disallowed_repository_url(
+    auth_bypassed_client: TestClient,
+) -> None:
+    """A repository_url on a non-allowlisted host is rejected with 400 (SSRF guard)."""
+    response = auth_bypassed_client.post(
+        "/api/scan",
+        json={"repositoryUrl": "https://evil.example.com/owner/repo", "mode": "live"},
+    )
+    assert response.status_code == 400
+    assert "repository" in response.json()["detail"].lower()
+
+
+def test_scan_rejects_non_https_repository_url(
+    auth_bypassed_client: TestClient,
+) -> None:
+    """A non-HTTPS repository_url is rejected with 400 before any network access."""
+    response = auth_bypassed_client.post(
+        "/api/scan",
+        json={"repositoryUrl": "http://github.com/owner/repo", "mode": "live"},
+    )
+    assert response.status_code == 400
+
+
 def test_findings_return_404_before_scan(auth_bypassed_client: TestClient) -> None:
     """GET /findings before any scan returns 404, not fabricated data."""
     # Reset in-memory state.

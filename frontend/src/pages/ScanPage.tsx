@@ -20,6 +20,7 @@ export const ScanPage: React.FC = () => {
   const repoParam = searchParams.get('repo') || '';
 
   const [repositoryPath, setRepositoryPath] = useState(repoParam);
+  const [targetType, setTargetType] = useState<'repo' | 'image'>('repo');
   const [mode, setMode] = useState<'live' | 'cached'>('live');
   const [scanning, setScanning] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -33,7 +34,13 @@ export const ScanPage: React.FC = () => {
     setError(null);
     setCurrentStepIndex(0);
 
-    const targetPath = pathOverride !== undefined ? pathOverride : repositoryPath;
+    const rawTarget = pathOverride !== undefined ? pathOverride : repositoryPath;
+    const target = rawTarget.trim();
+    // Repo target: a URL is cloned server-side; anything else is a local path
+    // (dev only); blank scans the seeded demo repo. Image target: an image
+    // reference is pulled + flattened, then run through the same scanners.
+    const isUrl = /^https?:\/\//i.test(target);
+    const isImage = targetType === 'image';
 
     // Animate pipeline steps for smooth demo presentation
     const interval = setInterval(() => {
@@ -44,7 +51,15 @@ export const ScanPage: React.FC = () => {
       const res = await startScan({
         projectId: 'demo',
         mode,
-        ...(targetPath.trim() ? { repositoryPath: targetPath.trim() } : {}),
+        ...(isImage
+          ? target
+            ? { imageRef: target }
+            : {}
+          : target
+            ? isUrl
+              ? { repositoryUrl: target }
+              : { repositoryPath: target }
+            : {}),
       });
 
       const findings = await fetchFindings({ projectId: 'demo' });
@@ -84,25 +99,62 @@ export const ScanPage: React.FC = () => {
 
       {/* Target Repository & Config Bar */}
       <div className="rounded-xl border border-[#222B35] bg-[#11171E] p-6 shadow-xl space-y-4">
+        {/* Target type selector */}
+        <div className="flex items-center gap-1 rounded-lg border border-[#222B35] bg-[#080B0F] p-1 w-fit font-mono text-xs">
+          {([
+            { id: 'repo', label: 'Repository', icon: 'database' },
+            { id: 'image', label: 'Container Image', icon: 'layers' },
+          ] as const).map((opt) => {
+            const active = targetType === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setTargetType(opt.id)}
+                disabled={scanning}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
+                  active
+                    ? 'border border-[#7DB7E8]/40 bg-[#7DB7E8]/20 text-[#7DB7E8]'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Icon name={opt.icon} size={13} />
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Target Repo Path */}
+          {/* Target input */}
           <div className="md:col-span-2">
             <label className="text-xs font-mono font-semibold uppercase text-slate-400 block mb-1.5">
-              Target Repository Path
+              {targetType === 'image'
+                ? 'Container Image (reference)'
+                : 'Target Repository (GitHub URL or local path)'}
             </label>
             <div className="relative">
-              <Icon name="database" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Icon
+                name={targetType === 'image' ? 'layers' : 'database'}
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+              />
               <input
                 type="text"
                 value={repositoryPath}
                 onChange={(e) => setRepositoryPath(e.target.value)}
                 disabled={scanning}
-                placeholder="Leave blank to scan the seeded demo repository"
+                placeholder={
+                  targetType === 'image'
+                    ? 'python:3.11-slim  (image is pulled, flattened, and scanned)'
+                    : 'https://github.com/owner/repo  (or leave blank for the demo repo)'
+                }
                 className="w-full rounded-lg border border-[#222B35] bg-[#080B0F] py-2.5 pl-9 pr-3 font-mono text-xs text-slate-200 placeholder:text-slate-600 focus:border-[#7DB7E8] focus:outline-none"
               />
             </div>
             <span className="text-[11px] text-slate-500 mt-1 block">
-              Default: Seeded demo repository containing planted cryptographic artefacts.
+              {targetType === 'image'
+                ? 'Provide an image reference (requires a container CLI on the server). Its layers are flattened and run through the same scanners as a repository.'
+                : 'Paste a public GitHub / GitLab / Bitbucket URL, or leave blank to scan the seeded demo repository.'}
             </span>
           </div>
 

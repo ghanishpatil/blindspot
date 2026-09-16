@@ -110,6 +110,8 @@ export default function Dashboard() {
   const transitionalCount = findings.filter((f) => f.riskTier === 'transitional').length;
   const lowRiskCount = findings.filter((f) => f.riskTier === 'low-risk').length;
   const weakNowCount = findings.filter((f) => f.isCurrentlyWeak).length;
+  const hndlCount = findings.filter((f) => f.isHndlExposed).length;
+  const verifyCount = findings.filter((f) => f.needsVerification).length;
 
   const pieData = [
     { name: 'Overdue', value: overdueCount },
@@ -141,7 +143,7 @@ export default function Dashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <div className="rounded-xl border border-[#222B35] bg-[#11171E] p-4 shadow-lg">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold">Total Assets</span>
@@ -188,6 +190,51 @@ export default function Dashboard() {
           <p className="mt-2 font-mono text-2xl font-bold text-emerald-400">{lowRiskCount}</p>
           <span className="text-[11px] text-emerald-400/80 block mt-1">Defer & monitor</span>
         </div>
+
+        <div
+          className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 p-4 shadow-lg"
+          title="Harvest-Now-Decrypt-Later: confidential, quantum-vulnerable data that is overdue for migration. Attackers can record it today and decrypt it once a quantum computer exists."
+        >
+          <div className="flex items-center justify-between text-fuchsia-400">
+            <span className="text-xs font-semibold">HNDL Exposed</span>
+            <Icon name="eye" size={16} />
+          </div>
+          <p className="mt-2 font-mono text-2xl font-bold text-fuchsia-400">{hndlCount}</p>
+          <span className="text-[11px] text-fuchsia-400/80 block mt-1">Harvest-now-decrypt-later</span>
+        </div>
+      </div>
+
+      {/* Honesty signal — what the tool is not certain about */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#222B35] bg-[#0C1117] px-5 py-3.5">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+            verifyCount > 0
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+              : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+          }`}
+        >
+          <Icon name={verifyCount > 0 ? 'help-circle' : 'check-circle'} size={16} />
+        </span>
+        <div className="flex-1 min-w-[220px]">
+          <p className="text-sm text-slate-200">
+            <span className={`font-bold ${verifyCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {verifyCount}
+            </span>{' '}
+            {verifyCount === 1 ? 'finding is' : 'findings are'} flagged for manual verification
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Low detection confidence or an unresolved parameter. We surface what we are not certain
+            about rather than presenting every result with equal confidence.
+          </p>
+        </div>
+        {verifyCount > 0 ? (
+          <button
+            onClick={() => navigate('/findings')}
+            className="rounded-lg border border-[#222B35] bg-[#11171E] px-3 py-1.5 font-mono text-[11px] text-slate-300 transition-colors hover:border-[#7DB7E8]/40 hover:text-white"
+          >
+            Review findings →
+          </button>
+        ) : null}
       </div>
 
       {/* Visual Analytics Row */}
@@ -243,35 +290,40 @@ export default function Dashboard() {
         </div>
 
         {/* Algorithm & Artefact Breakdown */}
-        <div className="rounded-xl border border-[#222B35] bg-[#11171E] p-6 shadow-xl md:col-span-2">
+        <div className="flex flex-col rounded-xl border border-[#222B35] bg-[#11171E] p-6 shadow-xl md:col-span-2">
           <div className="flex items-center justify-between border-b border-[#222B35] pb-3">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
               Discovered Cryptographic Primitives
             </h3>
-            <span className="text-[11px] font-mono text-[#7DB7E8]">Seeded Demo Target</span>
+            <div className="flex items-center gap-2 text-[11px] font-mono">
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-300">
+                {findings.length} {findings.length === 1 ? 'primitive' : 'primitives'}
+              </span>
+              <span className="text-[#7DB7E8]">Scroll for more</span>
+            </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="card-scroll card-scroll-md mt-4 space-y-3">
             {findings.map((f) => (
               <div
                 key={f.id}
                 onClick={() => navigate(`/findings/${f.id}`)}
                 className="flex items-center justify-between rounded-lg border border-[#222B35] bg-[#0C1117] p-3 transition-all hover:border-[#7DB7E8]/50 cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded bg-[#151C24] font-mono font-bold text-xs text-[#7DB7E8]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#151C24] font-mono font-bold text-xs text-[#7DB7E8]">
                     {f.primitive.slice(0, 3).toUpperCase()}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold text-xs text-slate-100">{f.algorithm}</span>
-                      <span className="text-slate-500 text-xs">• {f.filePath}:{f.lineNumber}</span>
+                      <span className="truncate text-slate-500 text-xs">• {f.filePath}:{f.lineNumber}</span>
                     </div>
-                    <p className="text-[11px] text-slate-400">{f.displayName}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{f.displayName}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex shrink-0 items-center gap-4">
                   <span className="font-mono text-xs text-[#7DB7E8]">{f.recommendation?.algorithm}</span>
                   <RiskBadge tier={f.riskTier} size="sm" />
                 </div>

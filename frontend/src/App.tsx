@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { AppShell } from '@/components/AppShell';
 import { CBOMPage } from '@/pages/CBOMPage';
+import { CompliancePage } from '@/pages/CompliancePage';
 import Dashboard from '@/pages/Dashboard';
 import FindingDetail from '@/pages/FindingDetail';
 import Findings from '@/pages/Findings';
@@ -11,7 +12,9 @@ import NotFound from '@/pages/NotFound';
 import Signup from '@/pages/Signup';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { ReportsPage } from '@/pages/ReportsPage';
+import { RoadmapPage } from '@/pages/RoadmapPage';
 import { ScanPage } from '@/pages/ScanPage';
+import { TlsScanPage } from '@/pages/TlsScanPage';
 
 export default function App() {
   return (
@@ -59,6 +62,30 @@ export default function App() {
         element={
           <AppShell>
             <CBOMPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/roadmap"
+        element={
+          <AppShell>
+            <RoadmapPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/compliance"
+        element={
+          <AppShell>
+            <CompliancePage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/tls"
+        element={
+          <AppShell>
+            <TlsScanPage />
           </AppShell>
         }
       />

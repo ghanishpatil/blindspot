@@ -370,12 +370,12 @@ export const Landing: React.FC = () => {
       </section>
 
       {/* ---------------------------------------------------------------------
-         HOW IT WORKS (5-Stage Horizontal Workflow)
+         HOW IT WORKS (6-Stage Horizontal Workflow)
          --------------------------------------------------------------------- */}
       <section id="how-it-works" className="py-24 bg-[#080B0F]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#7DB7E8]">5-Stage Pipeline</span>
+            <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#7DB7E8]">6-Stage Pipeline</span>
             <h2 className="mt-2 text-3xl font-extrabold text-slate-100 sm:text-4xl">
               From discovery to migration decision.
             </h2>
@@ -385,14 +385,14 @@ export const Landing: React.FC = () => {
             {/* Connecting progress line */}
             <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-[#222B35] -translate-y-1/2 z-0" />
 
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 relative z-10">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 relative z-10">
               {/* Stage 1 */}
               <div className="rounded-xl border border-[#222B35] bg-[#11171E] p-5 shadow-lg">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7DB7E8]/10 text-[#7DB7E8] font-mono text-xs font-bold border border-[#7DB7E8]/30">
                   01
                 </div>
                 <h4 className="mt-4 font-bold text-slate-100 text-sm">SCAN</h4>
-                <p className="mt-1 text-xs text-slate-400">Source code & dependencies using Semgrep and parsers.</p>
+                <p className="mt-1 text-xs text-slate-400">Source code &amp; dependencies using Semgrep and parsers.</p>
               </div>
 
               {/* Stage 2 */}
@@ -419,7 +419,9 @@ export const Landing: React.FC = () => {
                   04
                 </div>
                 <h4 className="mt-4 font-bold text-slate-100 text-sm">ASSESS RISK</h4>
-                <p className="mt-1 text-xs text-slate-400">Mosca&apos;s inequality: <code className="text-[#7DB7E8]">X + Y &gt; Z</code></p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Mosca&apos;s inequality: <code className="text-[#7DB7E8]">X + Y &gt; Z</code>. Flags HNDL exposure; evaluates against India CII, NIST, or CRQC presets.
+                </p>
               </div>
 
               {/* Stage 5 */}
@@ -429,6 +431,15 @@ export const Landing: React.FC = () => {
                 </div>
                 <h4 className="mt-4 font-bold text-slate-100 text-sm">RECOMMEND</h4>
                 <p className="mt-1 text-xs text-slate-400">Pure PQC / Hybrid / Defer strategy determination.</p>
+              </div>
+
+              {/* Stage 6 */}
+              <div className="rounded-xl border border-[#222B35] bg-[#11171E] p-5 shadow-lg">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7DB7E8]/10 text-[#7DB7E8] font-mono text-xs font-bold border border-[#7DB7E8]/30">
+                  06
+                </div>
+                <h4 className="mt-4 font-bold text-slate-100 text-sm">PLAN</h4>
+                <p className="mt-1 text-xs text-slate-400">Groups findings into a sequenced migration roadmap: Remediate Now, Wave 1–3.</p>
               </div>
             </div>
 

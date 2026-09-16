@@ -10,6 +10,8 @@ interface FindingTableProps {
   onSelectFinding?: (finding: Finding) => void;
   className?: string;
   showFilters?: boolean;
+  /** Cap the scrollable body height. Use a CSS length or 'none' to disable. */
+  maxBodyHeight?: string;
 }
 
 export const FindingTable: React.FC<FindingTableProps> = ({
@@ -17,6 +19,7 @@ export const FindingTable: React.FC<FindingTableProps> = ({
   onSelectFinding,
   className = '',
   showFilters = true,
+  maxBodyHeight = '520px',
 }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -100,15 +103,22 @@ export const FindingTable: React.FC<FindingTableProps> = ({
               <option value="signature">Signature</option>
               <option value="hash">Hash</option>
               <option value="encryption">Encryption</option>
+              <option value="certificate">Certificate</option>
+              <option value="hardware-module">Hardware Module (HSM)</option>
+              <option value="cloud-service">Cloud KMS Service</option>
             </select>
           </div>
         </div>
       ) : null}
 
-      {/* Grid Table */}
-      <div className="overflow-x-auto">
+      {/* Table body — scrolls independently so a long list doesn't push the
+          rest of the page. The header row stays sticky at the top. */}
+      <div
+        className="card-scroll overflow-x-auto"
+        style={maxBodyHeight !== 'none' ? { maxHeight: maxBodyHeight } : undefined}
+      >
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-[#222B35] bg-[#0C1117] font-mono uppercase text-[11px] tracking-wider text-slate-400">
+          <thead className="sticky top-0 z-10 border-b border-[#222B35] bg-[#0C1117] font-mono uppercase text-[11px] tracking-wider text-slate-400 shadow-[0_1px_0_#222B35]">
             <tr>
               <th className="px-4 py-3 font-medium">Algorithm</th>
               <th className="px-4 py-3 font-medium">Location</th>
@@ -146,6 +156,46 @@ export const FindingTable: React.FC<FindingTableProps> = ({
                             Unresolved
                           </span>
                         ) : null}
+                        {finding.isHndlExposed ? (
+                          <span
+                            className="rounded bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] text-red-400 border border-red-500/30"
+                            title="Harvest-Now-Decrypt-Later: confidential data protected by quantum-vulnerable crypto that is overdue for migration. An attacker can record ciphertext today and decrypt it once a quantum computer exists."
+                          >
+                            HNDL
+                          </span>
+                        ) : null}
+                        {finding.evidence?.confidenceLevel === 'low' ? (
+                          <span
+                            className="rounded bg-slate-500/10 px-1.5 py-0.5 font-mono text-[10px] text-slate-300 border border-slate-500/40"
+                            title="Low detection confidence — flagged for manual verification. We surface what we are not certain about rather than asserting it."
+                          >
+                            Verify
+                          </span>
+                        ) : null}
+                        {finding.evidence?.detectionMethod === 'binary_signature' ? (
+                          <span
+                            className="rounded bg-purple-500/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-300 border border-purple-500/40"
+                            title="Binary fingerprint match (crypto constants / OIDs / library strings). A hint about what is linked in, not proof of how it is used."
+                          >
+                            Binary
+                          </span>
+                        ) : null}
+                        {finding.evidence?.detectionMethod === 'infra_declaration' ? (
+                          <span
+                            className="rounded bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300 border border-cyan-500/40"
+                            title="Declared HSM / KMS reference in IaC or SDK code. The surface exists — the exact algorithm inside still needs verification."
+                          >
+                            Declared
+                          </span>
+                        ) : null}
+                        {finding.evidence?.detectionMethod === 'tls_probe' ? (
+                          <span
+                            className="rounded bg-teal-500/10 px-1.5 py-0.5 font-mono text-[10px] text-teal-300 border border-teal-500/40"
+                            title="Observed live over the network from a TLS handshake."
+                          >
+                            Live TLS
+                          </span>
+                        ) : null}
                       </div>
                       <span className="text-[11px] text-slate-400 block truncate max-w-[180px]">
                         {finding.displayName}
@@ -170,13 +220,24 @@ export const FindingTable: React.FC<FindingTableProps> = ({
 
                     {/* Confidence */}
                     <td className="px-4 py-3.5 font-mono text-slate-300">
-                      <span
-                        className={`inline-flex items-center gap-1 font-semibold ${
-                          confPercent >= 90 ? 'text-emerald-400' : 'text-amber-400'
-                        }`}
-                      >
-                        {confPercent}%
-                      </span>
+                      {(() => {
+                        const level = finding.evidence?.confidenceLevel ?? 'high';
+                        const color =
+                          level === 'high'
+                            ? 'text-emerald-400'
+                            : level === 'medium'
+                              ? 'text-amber-400'
+                              : 'text-slate-400';
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 font-semibold ${color}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              level === 'high' ? 'bg-emerald-500' : level === 'medium' ? 'bg-amber-500' : 'bg-slate-500'
+                            }`} />
+                            {confPercent}%
+                            <span className="text-[10px] uppercase tracking-wide opacity-80">{level}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Risk Tier */}

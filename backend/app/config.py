@@ -44,8 +44,13 @@ class Settings(BaseSettings):
     app_name: str = "Blindspot ECDAT"
     app_version: str = "0.1.0"
     blindspot_env: str = Field(
-        default="development",
-        description="Deployment environment: development | production.",
+        default="production",
+        description=(
+            "Deployment environment: development | production. Defaults to "
+            "'production' so a deployment that forgets to set it fails closed "
+            "(authentication stays enforced). Local development sets it to "
+            "'development' explicitly via .env."
+        ),
     )
 
     # Comma-separated rather than a JSON list: pydantic-settings would
@@ -90,6 +95,91 @@ class Settings(BaseSettings):
         default=120,
         ge=1,
         description="Hard timeout for a single semgrep invocation.",
+    )
+
+    scan_work_dir: str = Field(
+        default=str(REPO_ROOT / ".scan-work"),
+        description=(
+            "Working directory for cloned repos and extracted container images. "
+            "Kept on the project volume rather than the OS temp dir (some Windows "
+            "security tooling makes scanning %TEMP% paths slow/unreliable), and "
+            "placed OUTSIDE the backend directory so uvicorn's --reload watcher "
+            "does not restart the process when a container image is extracted."
+        ),
+    )
+
+    # --- Binary scanning (lite) -------------------------------------------
+    binary_scan_enabled: bool = Field(
+        default=True,
+        description="Fingerprint crypto constants/OIDs/library strings in compiled binaries.",
+    )
+    binary_max_scan_mb: int = Field(
+        default=50,
+        ge=1,
+        description="Skip individual binaries larger than this (memory guard).",
+    )
+
+    # --- HSM / KMS declaration scanning -----------------------------------
+    infra_scan_enabled: bool = Field(
+        default=True,
+        description="Discover HSM/PKCS#11 and cloud-KMS references in IaC and code.",
+    )
+    infra_max_scan_mb: int = Field(
+        default=5,
+        ge=1,
+        description="Skip individual infra/config files larger than this.",
+    )
+
+    # --- Live TLS / certificate scanning ----------------------------------
+    tls_scan_enabled: bool = Field(
+        default=True,
+        description="Allow live TLS/certificate probing of a hostname.",
+    )
+    tls_scan_timeout_seconds: int = Field(
+        default=10,
+        ge=1,
+        description="Hard timeout for a single TLS handshake probe.",
+    )
+
+    # --- Container image scanning -----------------------------------------
+    container_scan_enabled: bool = Field(
+        default=True,
+        description="Allow scanning container images (archive or CLI pull).",
+    )
+    container_max_extract_mb: int = Field(
+        default=1024,
+        ge=1,
+        description="Cap on total bytes extracted from an image (bomb guard).",
+    )
+    container_cli_timeout_seconds: int = Field(
+        default=300,
+        ge=1,
+        description="Hard timeout for a container CLI 'save' when pulling by reference.",
+    )
+
+    # --- Repository URL ingestion -----------------------------------------
+    # A user-supplied repository URL is an SSRF-sensitive boundary: the server
+    # clones it. Cloning is HTTPS-only and restricted to an allowlist of hosts.
+    git_path: str = Field(
+        default="git",
+        description="git executable used to clone remote repositories for URL scans.",
+    )
+    git_clone_depth: int = Field(
+        default=1,
+        ge=1,
+        description="Shallow-clone depth for repository-URL scans.",
+    )
+    repo_clone_timeout_seconds: int = Field(
+        default=120,
+        ge=1,
+        description="Hard timeout for a single git clone.",
+    )
+    allowed_git_hosts: str = Field(
+        default="github.com,gitlab.com,bitbucket.org",
+        description=(
+            "Comma-separated allowlist of hosts permitted for repository-URL "
+            "scans. Exact host or a subdomain of an allowed host is accepted."
+        ),
     )
 
     # --- Mosca risk model -------------------------------------------------
@@ -187,6 +277,16 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def git_host_allowlist(self) -> list[str]:
+        """Allowed git hosts as a cleaned, lowercased list."""
+        return [
+            host.strip().lower()
+            for host in self.allowed_git_hosts.split(",")
+            if host.strip()
+        ]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def is_production(self) -> bool:
         return self.blindspot_env.strip().lower() == "production"
 
@@ -219,13 +319,25 @@ class Settings(BaseSettings):
         return Path(self.firebase_credentials_path).expanduser().resolve()
 
     def auth_bypass_allowed(self) -> bool:
-        """Auth may only be bypassed outside production."""
-        return self.auth_disabled and not self.is_production
+        """Auth may be bypassed only in an explicitly-development environment.
+
+        Fail-closed: the bypass requires the environment to be the literal
+        string ``development``. Any other value — ``production``, ``staging``,
+        an empty string, a typo, or an unset variable (which defaults to
+        ``production``) — refuses the bypass. This makes accidental exposure in
+        a deployment take two deliberate mistakes, not one.
+        """
+        return self.auth_disabled and self.blindspot_env.strip().lower() == "development"
+
+    @property
+    def scan_work(self) -> Path:
+        return Path(self.scan_work_dir).expanduser().resolve()
 
     def ensure_directories(self) -> None:
         """Create local directories the application writes to."""
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.fallback_cache.parent.mkdir(parents=True, exist_ok=True)
+        self.scan_work.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache

@@ -152,6 +152,28 @@ def run_semgrep(target: Path, settings: Settings | None = None) -> list[dict]:
     if not target.exists():
         raise FileNotFoundError(f"Scan target does not exist: {target}")
 
+    # Our rules target Python and C only. Excluding non-source extensions
+    # keeps semgrep from walking (and opening) binaries, archives, IaC, and
+    # generated files — separate scanners own those. On Windows, real-time
+    # antivirus scans of large or ELF-magic files can otherwise stall the
+    # semgrep process indefinitely.
+    _SEMGREP_EXCLUDES = (
+        # Compiled / binary artefacts
+        "*.so", "*.dll", "*.dylib", "*.exe", "*.sys", "*.pyd",
+        "*.a", "*.lib", "*.o", "*.obj", "*.bundle", "*.bin",
+        # Archives
+        "*.zip", "*.tar", "*.tar.gz", "*.tgz", "*.gz", "*.7z", "*.rar",
+        "*.jar", "*.war", "*.whl",
+        # Images / media / docs — cannot contain matching source
+        "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.pdf", "*.svg",
+        "*.mp4", "*.mp3", "*.ico", "*.woff", "*.woff2", "*.ttf",
+        # IaC / config live in the infra scanner, not here
+        "*.tf", "*.tfvars", "*.tf.json", "*.tfstate",
+        # Common noisy directories
+        "node_modules", ".git", "dist", "build", "__pycache__", ".venv",
+        "venv", ".mypy_cache", ".pytest_cache", ".semgrep",
+    )
+
     cmd = [
         str(executable),
         "scan",
@@ -160,8 +182,10 @@ def run_semgrep(target: Path, settings: Settings | None = None) -> list[dict]:
         "--quiet",
         "--metrics=off",
         "--no-git-ignore",
-        str(target),
     ]
+    for pattern in _SEMGREP_EXCLUDES:
+        cmd.extend(("--exclude", pattern))
+    cmd.append(str(target))
 
     logger.info("Running: %s", " ".join(cmd))
 

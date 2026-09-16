@@ -43,6 +43,7 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[No
     monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     monkeypatch.setenv("FALLBACK_CACHE_PATH", str(tmp_path / "cache" / "last_scan.json"))
     monkeypatch.setenv("DEMO_REPO_PATH", str(tmp_path / "demo-repo"))
+    monkeypatch.setenv("SCAN_WORK_DIR", str(tmp_path / "scan-work"))
 
     get_settings.cache_clear()
     reset_firebase()

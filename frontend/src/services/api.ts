@@ -1,11 +1,14 @@
 import * as firebase from '@/services/firebase';
 import { DEMO_CBOM_JSON, DEMO_PLANTED_FINDINGS } from '@/services/mockData';
 import type {
+  ComplianceEvaluation,
   Finding,
   HealthResponse,
+  MigrationRoadmap,
   NotImplementedDetail,
   ScanRequest,
   ScanResponse,
+  TlsScanResult,
 } from '@/types';
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000';
@@ -178,6 +181,8 @@ export async function startScan(body: ScanRequest = {}): Promise<ScanResponse> {
           transitional: 1,
           lowRisk: 1,
           currentWeakCrypto: 1,
+          hndlExposed: 2,
+          needsVerification: 1,
           unresolvedParameters: 0,
           byAlgorithm: { 'RSA-2048': 1, 'ECDH-P384': 1, 'AES-256-GCM': 1, MD5: 1, 'ECDSA-P256': 1 },
           byArtefactType: { 'key-exchange': 2, encryption: 1, hash: 1, signature: 1 },
@@ -223,10 +228,68 @@ export async function fetchFinding(findingId: string): Promise<Finding> {
   }
 }
 
-/** URL of the CBOM export endpoint. */
+/** Prioritized, costed migration roadmap for the most recent scan. */
+export function fetchRoadmap(): Promise<MigrationRoadmap> {
+  return request<MigrationRoadmap>('/api/roadmap');
+}
+
+/** Compliance-sensitivity matrix: findings re-tiered under every Z preset. */
+export function fetchCompliance(): Promise<ComplianceEvaluation> {
+  return request<ComplianceEvaluation>('/api/compliance');
+}
+
+/** Probe a live TLS endpoint's certificate and negotiated protocol. */
+export function scanTls(host: string, port = 443): Promise<TlsScanResult> {
+  return request<TlsScanResult>('/api/tls-scan', {
+    method: 'POST',
+    body: { host, port },
+  });
+}
+
+/** URL of the CBOM export endpoint (no auth header — kept for reference/tests). */
 export function cbomExportUrl(scanId?: string): string {
   const suffix = scanId ? `?scanId=${encodeURIComponent(scanId)}` : '';
   return `${apiBaseUrl()}/api/export/cbom${suffix}`;
+}
+
+/**
+ * Download the CBOM as a file, attaching the Firebase ID token.
+ *
+ * A plain anchor to {@link cbomExportUrl} cannot send an Authorization header,
+ * so it 401s once auth is enforced. This fetches the document with the token
+ * (like every other API call) and triggers a client-side blob download, so the
+ * export works both in demo mode and under real authentication.
+ */
+export async function downloadCbom(scanId?: string): Promise<void> {
+  const suffix = scanId ? `?scanId=${encodeURIComponent(scanId)}` : '';
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  try {
+    const token = await firebase.getIdToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // No Firebase / demo mode — proceed without a token.
+  }
+
+  const response = await fetch(`${apiBaseUrl()}/api/export/cbom${suffix}`, { headers });
+  if (!response.ok) {
+    throw new ApiError(
+      `CBOM download failed with status ${response.status}.`,
+      response.status,
+      null,
+    );
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'blindspot-cbom.json';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }
 
 /** Fetch the CBOM document. */

@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 import { BackendStatus } from '@/components/BackendStatus';
 import { Icon, type IconName } from '@/components/Icon';
-import { cbomExportUrl } from '@/services/api';
+import { downloadCbom } from '@/services/api';
 
 interface AppShellProps {
   children: ReactNode;
@@ -19,8 +19,11 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Overview', icon: 'activity' },
   { to: '/scan', label: 'Scanner', icon: 'search', badge: 'Live AST' },
+  { to: '/tls', label: 'TLS / Certificates', icon: 'lock', badge: 'Live' },
   { to: '/findings', label: 'Findings', icon: 'alert-triangle' },
   { to: '/cbom', label: 'CBOM Inventory', icon: 'file-json', badge: 'CycloneDX' },
+  { to: '/roadmap', label: 'Migration Roadmap', icon: 'target', badge: 'Plan' },
+  { to: '/compliance', label: 'Compliance Sensitivity', icon: 'shield', badge: 'Mosca' },
   { to: '/reports', label: 'Migration Report', icon: 'barchart' },
   { to: '/projects', label: 'Projects', icon: 'layers' },
 ];
@@ -126,15 +129,14 @@ export function AppShell({ children }: AppShellProps) {
           <div className="flex items-center gap-4">
             <BackendStatus />
 
-            <a
-              href={cbomExportUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => void downloadCbom()}
               className="flex items-center gap-1.5 rounded-lg border border-[#7DB7E8]/40 bg-[#7DB7E8]/10 px-3 py-1.5 font-mono text-xs font-semibold text-[#7DB7E8] transition-colors hover:bg-[#7DB7E8]/20"
             >
               <Icon name="download" size={14} />
               <span>Export CBOM</span>
-            </a>
+            </button>
 
             <button
               onClick={() => navigate('/login')}

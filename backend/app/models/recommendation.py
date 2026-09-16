@@ -34,6 +34,45 @@ class MigrationStrategy(str, Enum):
     """Parameters could not be resolved; a human must confirm before deciding."""
 
 
+class CostProfile(BlindspotModel):
+    """The operational cost of a PQC/hybrid target, in *published* sizes.
+
+    The PS asks for recommendations "based on risk profile, latency, cost." We
+    express cost as the concrete artefact sizes standardised in the FIPS specs —
+    public key, ciphertext, and signature bytes — versus the classical algorithm
+    being replaced. These are **published parameter sizes, not measured
+    latency**: real latency depends on hardware, network, and implementation, so
+    we do not invent millisecond figures. Larger keys/ciphertexts are the honest,
+    citable proxy for the bandwidth, storage, and handshake cost of migrating.
+    """
+
+    target: str = Field(description="PQC target the sizes describe, e.g. 'ML-KEM-768'.")
+    public_key_bytes: int | None = Field(default=None, description="PQC public/encapsulation key size.")
+    ciphertext_bytes: int | None = Field(default=None, description="KEM ciphertext size (KEMs only).")
+    signature_bytes: int | None = Field(default=None, description="Signature size (signatures only).")
+    private_key_bytes: int | None = Field(default=None, description="PQC private/decapsulation key size.")
+    classical_public_key_bytes: int | None = Field(
+        default=None, description="Approx. classical public-key size being replaced."
+    )
+    classical_signature_bytes: int | None = Field(
+        default=None, description="Approx. classical signature size being replaced."
+    )
+    relative_cost: str = Field(
+        default="moderate",
+        description="Coarse cost band from artefact size: low | moderate | high.",
+    )
+    size_summary: str = Field(
+        description="Plain-language size comparison vs. the classical algorithm."
+    )
+    basis: str = Field(
+        default="Published FIPS parameter sizes in bytes — not measured runtime latency.",
+        description="What these numbers are (and are not).",
+    )
+    sources: list[str] = Field(
+        default_factory=list, description="Standards the sizes come from."
+    )
+
+
 class Recommendation(BlindspotModel):
     """A single actionable recommendation for one finding."""
 
@@ -73,5 +112,12 @@ class Recommendation(BlindspotModel):
         description=(
             "False for REMEDIATE_NOW findings, which address a current "
             "weakness rather than quantum migration urgency."
+        ),
+    )
+    cost_profile: CostProfile | None = Field(
+        default=None,
+        description=(
+            "Size/cost profile of the PQC target (published FIPS sizes). Present "
+            "for PQC and HYBRID recommendations; None where there is no PQC target."
         ),
     )

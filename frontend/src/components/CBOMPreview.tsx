@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import { Icon } from '@/components/Icon';
-import { cbomExportUrl } from '@/services/api';
+import { downloadCbom } from '@/services/api';
 
 interface CBOMPreviewProps {
   cbomData?: unknown;
@@ -82,14 +82,13 @@ export const CBOMPreview: React.FC<CBOMPreviewProps> = ({ cbomData, scanId, clas
       {/* Footer Info */}
       <div className="flex items-center justify-between border-t border-[#222B35] bg-[#0C1117] px-4 py-2.5 text-[11px] text-slate-400">
         <span>CycloneDX Standardized Cryptographic Bill of Materials</span>
-        <a
-          href={cbomExportUrl(scanId)}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => void downloadCbom(scanId)}
           className="text-[#7DB7E8] hover:underline"
         >
-          Raw API Endpoint
-        </a>
+          Download CBOM
+        </button>
       </div>
     </div>
   );

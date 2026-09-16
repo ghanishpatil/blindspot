@@ -17,7 +17,17 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommen
     );
   }
 
-  const { strategy, algorithm, parameterSet, rationale, replaces, priority, effort, migrationNotes, references } = recommendation;
+  const { strategy, algorithm, parameterSet, rationale, replaces, priority, effort, migrationNotes, references, costProfile } = recommendation;
+
+  const costBandClass =
+    costProfile?.relativeCost === 'high'
+      ? 'border-red-500/30 bg-red-500/10 text-red-400'
+      : costProfile?.relativeCost === 'moderate'
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+
+  const fmtBytes = (n: number | null | undefined): string =>
+    n == null ? '—' : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
 
   let strategyBadgeClass = 'border-blue-500/30 bg-blue-500/10 text-blue-400';
   let strategyLabel: string = strategy;
@@ -86,6 +96,59 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommen
           {rationale}
         </p>
       </div>
+
+      {/* Cost & Size Profile (published FIPS sizes, not fabricated latency) */}
+      {costProfile ? (
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Cost &amp; Size Profile
+            </h4>
+            <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold capitalize ${costBandClass}`}>
+              {costProfile.relativeCost} cost
+            </span>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+              <span className="block text-[10px] uppercase tracking-wider text-slate-500">Public key</span>
+              <span className="font-mono text-sm text-slate-200">{fmtBytes(costProfile.publicKeyBytes)}</span>
+              {costProfile.classicalPublicKeyBytes != null ? (
+                <span className="block text-[10px] text-slate-500">vs ~{fmtBytes(costProfile.classicalPublicKeyBytes)} classical</span>
+              ) : null}
+            </div>
+            {costProfile.ciphertextBytes != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Ciphertext</span>
+                <span className="font-mono text-sm text-slate-200">{fmtBytes(costProfile.ciphertextBytes)}</span>
+              </div>
+            ) : null}
+            {costProfile.signatureBytes != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Signature</span>
+                <span className="font-mono text-sm text-slate-200">{fmtBytes(costProfile.signatureBytes)}</span>
+                {costProfile.classicalSignatureBytes != null ? (
+                  <span className="block text-[10px] text-slate-500">vs ~{fmtBytes(costProfile.classicalSignatureBytes)} classical</span>
+                ) : null}
+              </div>
+            ) : null}
+            {costProfile.privateKeyBytes != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Private key</span>
+                <span className="font-mono text-sm text-slate-200">{fmtBytes(costProfile.privateKeyBytes)}</span>
+              </div>
+            ) : null}
+          </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-slate-300">{costProfile.sizeSummary}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+            <span className="italic">{costProfile.basis}</span>
+            {costProfile.sources.map((src, idx) => (
+              <span key={idx} className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">{src}</span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Migration Notes Checklist */}
       {migrationNotes && migrationNotes.length > 0 ? (
