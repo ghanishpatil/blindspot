@@ -1,199 +1,126 @@
 @import 'tailwindcss';
 
-/* ---------------------------------------------------------------------------
-   Blindspot ECDAT Design Tokens (Enterprise Security Dark Theme)
-   --------------------------------------------------------------------------- */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Blindspot ECDAT — Design Tokens
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Aesthetic: technical, restrained, instrument-panel. Every visual choice
+   is judged against "does this look like a cybersecurity tool, or like a
+   generic SaaS template?" — the former wins.
+
+   * Palette: three surface tones, one cool cyan accent, semantic colour used
+     only for risk tiers and provenance signals.
+   * Type: two families. Sans for UI, mono for technical values.
+   * Elevation: borders over drop shadows. Cards are architectural, not floaty.
+   * Radii: 6 / 8 / 12. Larger radii read as consumer-app.
+   * Motion: purposeful only. Scan lines while a scan is in flight, staged
+     reveals when a section enters, value transitions. No decorative floats.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @theme {
-  /* Surface hierarchy */
-  --color-canvas: #080B0F;
-  --color-canvas-subtle: #0C1117;
-  --color-surface: #11171E;
-  --color-surface-raised: #151C24;
-  --color-border-subtle: #222B35;
-  --color-border-bright: #334155;
+  /* ── Surface hierarchy ──────────────────────────────────────────────── */
+  --color-canvas: #06090C;
+  --color-panel: #0B1015;
+  --color-raised: #12181F;
+  --color-elevated: #171F27;
 
-  /* Typography ink */
-  --color-ink: #F1F5F9;
-  --color-ink-muted: #94A3B8;
-  --color-ink-faint: #64748B;
+  /* ── Borders ────────────────────────────────────────────────────────── */
+  --color-border-subtle: #1B242E;
+  --color-border-strong: #2A3441;
+  --color-border-focus: rgba(124, 209, 224, 0.35);
 
-  /* Brand Accents — Sophisticated Muted Blue & Warm Amber */
-  --color-brand: #7DB7E8;
-  --color-brand-secondary: #5F9FD4;
-  --color-brand-highlight: #9BC7EA;
-  --color-brand-amber: #C98A52;
-  --color-brand-amber-light: #D09A62;
+  /* ── Ink ────────────────────────────────────────────────────────────── */
+  --color-ink: #E8ECF1;
+  --color-ink-muted: #8F98A6;
+  --color-ink-faint: #5B6674;
+  --color-ink-quiet: #3E4652;
 
-  /* Semantic Risk Tiers */
-  --color-tier-overdue: #EF4444;
-  --color-tier-transitional: #F59E0B;
-  --color-tier-low: #22C55E;
-  --color-weak-now: #F43F5E;
-  --color-unknown: #94A3B8;
+  /* ── Accent (single, restrained) ───────────────────────────────────── */
+  --color-accent: #7CD1E0;
+  --color-accent-strong: #5EBACC;
+  --color-accent-soft: rgba(124, 209, 224, 0.12);
+  --color-accent-line: rgba(124, 209, 224, 0.3);
 
-  /* Confidence levels */
-  --color-confidence-high: #22C55E;
-  --color-confidence-medium: #F59E0B;
-  --color-confidence-low: #94A3B8;
+  /* ── Semantic — risk tiers ─────────────────────────────────────────── */
+  --color-overdue: #E85D5D;
+  --color-overdue-soft: rgba(232, 93, 93, 0.12);
+  --color-transitional: #E9A73A;
+  --color-transitional-soft: rgba(233, 167, 58, 0.12);
+  --color-low-risk: #4FB37A;
+  --color-low-risk-soft: rgba(79, 179, 122, 0.12);
 
-  /* Fonts */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  /* ── Semantic — provenance / signals ───────────────────────────────── */
+  --color-weak-now: #EB6480;
+  --color-hndl: #B090F5;
+  --color-verify: #8F98A6;
+  --color-live-tls: #4FB3A6;
+
+  /* ── Fonts ─────────────────────────────────────────────────────────── */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', monospace;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
   html {
     color-scheme: dark;
     scroll-behavior: smooth;
+    /* Match the mono numerals across the app: tabular-nums keeps ledger-style
+       digits from jittering as values change during animation. */
+    font-feature-settings: 'ss01', 'cv11';
+    font-variant-numeric: tabular-nums;
   }
 
   body {
-    background-color: var(--color-canvas);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     margin: 0;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* A very subtle vignette gives the canvas depth without introducing
+       decorative gradients. Not noticeable individually; noticeable in aggregate. */
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(124, 209, 224, 0.025) 0%, transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(176, 144, 245, 0.02) 0%, transparent 45%);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+    border-radius: 2px;
   }
 
-  code,
-  pre {
+  code, pre, .mono {
     font-family: var(--font-mono);
+    font-feature-settings: 'zero', 'ss01';
+  }
+
+  /* Selection uses the accent softly. */
+  ::selection {
+    background: rgba(124, 209, 224, 0.25);
+    color: var(--color-ink);
   }
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scrollbars — subtle, themed
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-::-webkit-scrollbar-track {
-  background: #080B0F;
-}
-
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #222B35;
-  border-radius: 3px;
+  background: var(--color-border-subtle);
+  border-radius: 4px;
+  border: 2px solid var(--color-canvas);
 }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
-}
-
-/* Scanning Line Keyframes */
-@keyframes scanline {
-  0% {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  50% {
-    opacity: 0.4;
-  }
-  100% {
-    transform: translateY(1000%);
-    opacity: 0;
-  }
-}
-
-.animate-scanline {
-  animation: scanline 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Glass & Glow utilities */
-.glass-panel {
-  background: rgba(17, 23, 30, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(34, 43, 53, 0.8);
-}
-
-.glass-panel-raised {
-  background: rgba(21, 28, 36, 0.9);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
-}
-
-.subtle-grid {
-  background-size: 32px 32px;
-  background-image: 
-    linear-gradient(to right, rgba(34, 43, 53, 0.3) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(34, 43, 53, 0.3) 1px, transparent 1px);
-}
-
-/* Keyframes & Animations */
-@keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(125, 183, 232, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(125, 183, 232, 0.5);
-  }
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes shimmer-slide {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.animate-float {
-  animation: float-slow 4s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-.animate-fade-in {
-  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.glow-brand {
-  box-shadow: 0 0 25px rgba(125, 183, 232, 0.3);
-}
-
-.glow-brand-hover:hover {
-  box-shadow: 0 0 35px rgba(125, 183, 232, 0.5);
-}
-
-
-
-/* ---------------------------------------------------------------------------
-   Scrollable card body
-   ---------------------------------------------------------------------------
-   Long lists inside cards should not force the whole page to scroll. Any
-   element with `.card-scroll` becomes an independent scroll region with a
-   subtle themed scrollbar. Height variants let each card cap itself sensibly.
-*/
+/* Card-scoped scroll containers (already in use across long lists) */
 .card-scroll {
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -207,7 +134,304 @@
 .card-scroll::-webkit-scrollbar { width: 6px; }
 .card-scroll::-webkit-scrollbar-track { background: transparent; }
 .card-scroll::-webkit-scrollbar-thumb {
-  background: #222B35;
+  background: var(--color-border-subtle);
   border-radius: 3px;
+  border: none;
 }
-.card-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+.card-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Surface primitives — elevation via borders, not shadows
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.surface-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+}
+
+.surface-raised {
+  background: var(--color-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  /* Subtle inset gives a "cut-in" architectural feel without a floaty shadow. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.surface-elevated {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* A background grid — instrument-panel affordance. Used sparingly for hero
+   surfaces so they feel like an engineered viewport, not a decorated card. */
+.grid-lines {
+  background-size: 48px 48px;
+  background-image:
+    linear-gradient(to right, rgba(27, 36, 46, 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 36, 46, 0.55) 1px, transparent 1px);
+}
+
+.grid-lines-dense {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(27, 36, 46, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 36, 46, 0.4) 1px, transparent 1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Typographic utility classes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.eyebrow-muted {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Motion — purposeful only
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Section reveal: soft rise + fade, no bounce. Used on page load and on scroll. */
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-in { animation: reveal-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Staged reveal for lists — assign inline delays via style={{animationDelay}}. */
+.reveal-stagger { animation: reveal-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Scan line — used only for active scan surfaces. It signals *work happening*. */
+@keyframes scan-y {
+  0%   { transform: translateY(-8%); opacity: 0; }
+  8%   { opacity: 0.75; }
+  92%  { opacity: 0.75; }
+  100% { transform: translateY(108%); opacity: 0; }
+}
+.scanline {
+  position: absolute; inset: 0 0 auto 0;
+  height: 1.5px;
+  background: linear-gradient(
+    to right,
+    transparent, var(--color-accent) 12%, var(--color-accent) 88%, transparent
+  );
+  animation: scan-y 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  filter: drop-shadow(0 0 6px var(--color-accent-line));
+}
+
+/* Numeric transitions — used on Stat components. */
+@keyframes tick-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tick-in { animation: tick-in 240ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/* Marching-ants outline for "processing" indicators (thin, technical). */
+@keyframes march {
+  to { stroke-dashoffset: -32; }
+}
+.march-outline { stroke-dasharray: 6 4; stroke-dashoffset: 0; animation: march 3s linear infinite; }
+
+/* Legacy compatibility — kept so I don't have to rewire every consumer today. */
+.animate-scanline { animation: scan-y 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.animate-fade-in { animation: reveal-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Kill the decorative float and glow-pulse — no purposeful use survived audit. */
+.animate-float { animation: none; }
+.animate-pulse-glow { animation: none; box-shadow: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Glass panels — used only for overlays / navbars where blur is functional
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.glass-panel {
+  background: rgba(11, 16, 21, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.subtle-grid { /* legacy compat with existing Landing */
+  background-size: 48px 48px;
+  background-image:
+    linear-gradient(to right, rgba(27, 36, 46, 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 36, 46, 0.55) 1px, transparent 1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Reduced motion respect
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Cursor aurora — a soft accent-coloured spot that follows the cursor.
+
+   The aurora is a fixed-position layer behind all content. Its centre is
+   controlled via CSS custom properties (--cursor-x / --cursor-y) written by
+   `useCursorAurora`, so no React state is involved and mousemove is free.
+
+   Only active on the landing (opt-in via `has-aurora` on <html>).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --cursor-x: 50vw;
+  --cursor-y: 30vh;
+}
+
+.aurora-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 500ms ease-out;
+  background:
+    /* Primary spotlight — the accent-tinted beam. */
+    radial-gradient(
+      560px circle at var(--cursor-x) var(--cursor-y),
+      rgba(124, 209, 224, 0.10),
+      rgba(124, 209, 224, 0.04) 25%,
+      transparent 55%
+    ),
+    /* Secondary highlight — a very soft violet, half-strength, offset. */
+    radial-gradient(
+      900px circle at calc(var(--cursor-x) + 200px) calc(var(--cursor-y) + 120px),
+      rgba(176, 144, 245, 0.04),
+      transparent 60%
+    );
+}
+
+.aurora-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-size: 56px 56px;
+  background-image:
+    linear-gradient(to right, rgba(27, 36, 46, 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 36, 46, 0.55) 1px, transparent 1px);
+  /* Mask reveals the grid only where the cursor is — the beam probes the
+     surface. This is the visual metaphor for cryptographic *discovery*. */
+  mask: radial-gradient(
+    620px circle at var(--cursor-x) var(--cursor-y),
+    rgba(0, 0, 0, 0.95),
+    rgba(0, 0, 0, 0.35) 40%,
+    rgba(0, 0, 0, 0.08) 70%,
+    transparent 88%
+  );
+  -webkit-mask: radial-gradient(
+    620px circle at var(--cursor-x) var(--cursor-y),
+    rgba(0, 0, 0, 0.95),
+    rgba(0, 0, 0, 0.35) 40%,
+    rgba(0, 0, 0, 0.08) 70%,
+    transparent 88%
+  );
+}
+
+/* Coarse pointers / reduced motion: keep a static, subtle ambient wash so
+   the landing doesn't feel unfinished when the aurora is off. */
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .aurora-layer {
+    background:
+      radial-gradient(
+        900px circle at 50% 20%,
+        rgba(124, 209, 224, 0.07),
+        transparent 60%
+      );
+  }
+  .aurora-grid {
+    mask: none;
+    -webkit-mask: none;
+    opacity: 0.28;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Reveal-on-scroll — one-shot transitions triggered by useReveal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.reveal-target {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 780ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-target.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Fine-tuned variants for different content roles. */
+.reveal-target--soft {
+  transform: translateY(14px);
+}
+.reveal-target--soft.is-revealed {
+  transform: translateY(0);
+}
+
+.reveal-target--slide-x {
+  transform: translateX(-24px);
+}
+.reveal-target--slide-x.is-revealed {
+  transform: translateX(0);
+}
+
+.reveal-target--rise {
+  transform: translateY(48px) scale(0.985);
+}
+.reveal-target--rise.is-revealed {
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-target {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Landing-only: subtle cursor-parallax on the hero viewport.
+   Values are set inline via style={{...}} so they can respond to cursor position.
+   The transition keeps them smooth without needing a rAF loop.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.hero-tilt {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+  will-change: transform;
+}

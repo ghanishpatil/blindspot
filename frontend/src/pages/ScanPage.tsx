@@ -3,7 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { FindingTable } from '@/components/FindingTable';
 import { Icon } from '@/components/Icon';
-import { fetchFindings, startScan } from '@/services/api';
+import { ScanHistory } from '@/components/ScanHistory';
+import { fetchCbom, fetchFindings, startScan } from '@/services/api';
+import {
+  type ScanHistoryEntry,
+  addScanToHistory,
+  getScanHistory,
+} from '@/services/scanHistory';
 import type { Finding, ScanResponse } from '@/types';
 
 const PIPELINE_STEPS = [
@@ -27,6 +33,12 @@ export const ScanPage: React.FC = () => {
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
   const [findingsResult, setFindingsResult] = useState<Finding[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
+
+  // Load stored scan history on mount.
+  useEffect(() => {
+    setHistory(getScanHistory());
+  }, []);
 
   const handleStartScan = async (pathOverride?: string) => {
     setScanning(true);
@@ -64,10 +76,41 @@ export const ScanPage: React.FC = () => {
 
       const findings = await fetchFindings({ projectId: 'demo' });
 
+      // Capture the CBOM so the history entry is self-contained (best-effort;
+      // a failure here must not fail the scan flow).
+      let cbom: unknown | null = null;
+      if (res.cbomAvailable) {
+        try {
+          cbom = await fetchCbom(res.scanId);
+        } catch {
+          cbom = null;
+        }
+      }
+
       clearInterval(interval);
       setCurrentStepIndex(PIPELINE_STEPS.length - 1);
       setScanResult(res);
       setFindingsResult(findings);
+
+      // Snapshot this run into local history (input + result + findings + CBOM).
+      const targetKind: ScanHistoryEntry['targetKind'] = isImage
+        ? 'image-ref'
+        : !target
+          ? 'demo-repo'
+          : isUrl
+            ? 'git-url'
+            : 'local-path';
+      setHistory(
+        addScanToHistory({
+          targetType,
+          targetInput: target,
+          targetKind,
+          mode,
+          response: res,
+          findings,
+          cbom,
+        }),
+      );
 
       // Auto transition to Page 3 (Findings Dashboard) after brief pause
       setTimeout(() => {
@@ -285,6 +328,9 @@ export const ScanPage: React.FC = () => {
           <FindingTable findings={findingsResult} />
         </div>
       ) : null}
+
+      {/* Recent scans — collapsible history of past runs */}
+      <ScanHistory entries={history} onChange={setHistory} />
     </div>
   );
 };
