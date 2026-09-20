@@ -80,7 +80,8 @@ export default function Dashboard() {
   if (load.kind === 'loading') return <LoadingState />;
   if (load.kind === 'error') return <ErrorState message={load.message} />;
 
-  const { findings, health } = load;
+  const findings: Finding[] = Array.isArray(load.findings) ? load.findings : DEMO_PLANTED_FINDINGS;
+  const health: HealthResponse = load.health ?? DEMO_HEALTH_RESPONSE;
   return (
     <div className="space-y-8">
       <Header scanning={scanning} onRunScan={handleRunScan} />

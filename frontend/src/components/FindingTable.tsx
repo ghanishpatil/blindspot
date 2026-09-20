@@ -26,7 +26,8 @@ export const FindingTable: React.FC<FindingTableProps> = ({
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const filtered = findings.filter((f) => {
+  const safeFindings = Array.isArray(findings) ? findings : [];
+  const filtered = safeFindings.filter((f) => {
     const matchesSearch =
       search === '' ||
       f.algorithm.toLowerCase().includes(search.toLowerCase()) ||

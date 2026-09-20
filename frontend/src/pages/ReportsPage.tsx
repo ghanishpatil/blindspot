@@ -9,12 +9,15 @@ export const ReportsPage: React.FC = () => {
   const [findings, setFindings] = useState<Finding[]>([]);
 
   useEffect(() => {
-    fetchFindings().then(setFindings).catch(console.error);
+    fetchFindings()
+      .then((data) => setFindings(Array.isArray(data) ? data : []))
+      .catch(console.error);
   }, []);
 
-  const overdue = findings.filter((f) => f.riskTier === 'overdue');
-  const transitional = findings.filter((f) => f.riskTier === 'transitional');
-  const lowRisk = findings.filter((f) => f.riskTier === 'low-risk');
+  const safeFindings = Array.isArray(findings) ? findings : [];
+  const overdue = safeFindings.filter((f) => f.riskTier === 'overdue');
+  const transitional = safeFindings.filter((f) => f.riskTier === 'transitional');
+  const lowRisk = safeFindings.filter((f) => f.riskTier === 'low-risk');
 
   return (
     <div className="space-y-8">
@@ -77,7 +80,7 @@ export const ReportsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#222B35]">
-              {findings.map((f) => (
+              {safeFindings.map((f) => (
                 <tr key={f.id} className="hover:bg-[#151C24]">
                   <td className="px-4 py-3 font-bold text-slate-100">{f.algorithm}</td>
                   <td className="px-4 py-3 text-slate-400 capitalize">{f.artefactType}</td>
