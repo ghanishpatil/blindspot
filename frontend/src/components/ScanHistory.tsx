@@ -79,22 +79,6 @@ interface ScanHistoryRowProps {
   onRemove: () => void;
 }
 
-const EMPTY_SUMMARY = {
-  totalFindings: 0,
-  quantumSensitive: 0,
-  overdue: 0,
-  transitional: 0,
-  lowRisk: 0,
-  currentWeakCrypto: 0,
-  hndlExposed: 0,
-  needsVerification: 0,
-  unresolvedParameters: 0,
-  byAlgorithm: {},
-  byArtefactType: {},
-  byConfidenceLevel: {},
-  filesScanned: 0,
-} as const;
-
 const ScanHistoryRow: React.FC<ScanHistoryRowProps> = ({
   entry,
   expanded,
@@ -102,7 +86,7 @@ const ScanHistoryRow: React.FC<ScanHistoryRowProps> = ({
   onRemove,
 }) => {
   const { response } = entry;
-  const summary = response?.summary ?? EMPTY_SUMMARY;
+  const summary = response.summary;
   const when = new Date(entry.timestamp);
 
   return (
@@ -167,7 +151,7 @@ const ScanHistoryDetail: React.FC<{ entry: ScanHistoryEntry; onRemove: () => voi
 }) => {
   const navigate = useNavigate();
   const { response, findings } = entry;
-  const summary = response?.summary ?? EMPTY_SUMMARY;
+  const summary = response.summary;
 
   // "Important" findings: overdue first, then transitional, then currently
   // weak, capped so the row stays readable. Falls back to first few findings.

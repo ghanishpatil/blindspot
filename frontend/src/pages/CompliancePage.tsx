@@ -234,26 +234,11 @@ export const CompliancePage: React.FC = () => {
     fetchCompliance()
       .then((evaluation) => {
         if (cancelled) return;
-        // Defensive: normalise malformed/partial responses so rendering cannot
-        // crash on undefined presets/findings/summaryByPreset.
-        const safe = evaluation && typeof evaluation === 'object'
-          ? {
-              ...evaluation,
-              totalFindings: typeof evaluation.totalFindings === 'number' ? evaluation.totalFindings : 0,
-              presets: Array.isArray(evaluation.presets) ? evaluation.presets : [],
-              findings: Array.isArray(evaluation.findings) ? evaluation.findings : [],
-              summaryByPreset: evaluation.summaryByPreset && typeof evaluation.summaryByPreset === 'object'
-                ? evaluation.summaryByPreset
-                : {},
-              baselinePresetName: typeof evaluation.baselinePresetName === 'string' ? evaluation.baselinePresetName : '',
-            }
-          : null;
-
-        if (!safe || safe.totalFindings === 0 || safe.presets.length === 0) {
+        if (evaluation.totalFindings === 0) {
           setState({ kind: 'empty' });
         } else {
-          setState({ kind: 'loaded', evaluation: safe as ComplianceEvaluation });
-          setSelectedName(safe.baselinePresetName);
+          setState({ kind: 'loaded', evaluation });
+          setSelectedName(evaluation.baselinePresetName);
         }
       })
       .catch((err: unknown) => {

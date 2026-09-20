@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Blindspot ECDAT — SIH 2026 PS 26164 · Technical Presentation Script</title>
+<style>
+  @page { size: A4; margin: 18mm 20mm 20mm 20mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #111827;
+    line-height: 1.5;
+    font-size: 10.5pt;
+    margin: 0;
+  }
+  h1, h2, h3, h4 { color: #0F172A; }
+  h1 { font-size: 22pt; margin: 0 0 4pt; letter-spacing: -0.01em; }
+  h2 { font-size: 13pt; margin: 18pt 0 6pt; border-bottom: 1px solid #CBD5E1; padding-bottom: 3pt; }
+  h3 { font-size: 11pt; margin: 10pt 0 4pt; color: #1E293B; }
+  h4 { font-size: 10pt; margin: 8pt 0 3pt; color: #334155; text-transform: uppercase; letter-spacing: 0.06em; }
+  p { margin: 4pt 0; }
+  code, .mono {
+    font-family: "Consolas", "Menlo", "Courier New", monospace;
+    font-size: 9.5pt;
+    background: #F1F5F9;
+    padding: 1pt 3pt;
+    border-radius: 2pt;
+    color: #0F172A;
+  }
+  pre {
+    font-family: "Consolas", "Menlo", "Courier New", monospace;
+    font-size: 9pt;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    padding: 6pt 9pt;
+    border-radius: 3pt;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .cover {
+    text-align: left;
+    padding: 40pt 0 24pt;
+    border-bottom: 2px solid #0F172A;
+  }
+  .cover .rule { color: #64748B; font-size: 9pt; letter-spacing: 0.18em; text-transform: uppercase; }
+  .cover h1 { font-size: 28pt; margin-top: 6pt; }
+  .cover .sub { font-size: 12pt; color: #334155; margin-top: 4pt; }
+  .cover .meta { margin-top: 14pt; font-size: 9.5pt; color: #475569; }
+  .cover .meta span { display: inline-block; margin-right: 16pt; }
+
+  .section {
+    page-break-inside: avoid;
+    margin-top: 14pt;
+  }
+  .slide-tag {
+    display: inline-block;
+    background: #0F172A;
+    color: #F8FAFC;
+    padding: 2pt 7pt;
+    border-radius: 3pt;
+    font-size: 8.5pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-right: 8pt;
+    vertical-align: middle;
+  }
+  .duration {
+    color: #64748B;
+    font-size: 9pt;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .say {
+    border-left: 3px solid #0EA5E9;
+    background: #F0F9FF;
+    padding: 8pt 10pt;
+    margin: 6pt 0;
+    border-radius: 0 3pt 3pt 0;
+    font-size: 10.5pt;
+  }
+  .cue {
+    border-left: 3px solid #F59E0B;
+    background: #FFFBEB;
+    padding: 4pt 8pt;
+    margin: 5pt 0;
+    font-size: 9pt;
+    color: #78350F;
+  }
+  .cue b { color: #92400E; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 9pt;
+    margin: 4pt 0 8pt;
+  }
+  th, td {
+    border: 1px solid #CBD5E1;
+    padding: 4pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #F1F5F9; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #334155; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 6pt 0; }
+  .card {
+    border: 1px solid #E2E8F0;
+    border-left: 3px solid #0EA5E9;
+    padding: 6pt 8pt;
+    border-radius: 2pt;
+    font-size: 9.5pt;
+    background: #FBFEFF;
+  }
+  .card b { color: #0F172A; }
+  .kbd {
+    font-family: "Consolas", monospace;
+    background: #F1F5F9;
+    padding: 0 3pt;
+    border-radius: 2pt;
+    font-size: 9pt;
+  }
+
+  .pagebreak { page-break-before: always; }
+  .footnote { font-size: 8.5pt; color: #64748B; margin-top: 3pt; }
+  .no-break { page-break-inside: avoid; }
+
+  ul, ol { margin: 4pt 0 4pt 18pt; padding: 0; }
+  li { margin: 2pt 0; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     COVER
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="rule">SIH 2026 · Problem Statement 26164 · Technical Presentation Script</div>
+  <h1>Blindspot ECDAT</h1>
+  <div class="sub">Enterprise Cryptographic Discovery &amp; Analysis Tool</div>
+  <div class="meta">
+    <span><b>Elevator</b>: You cannot migrate cryptography you cannot find.</span>
+    <span><b>Runtime</b>: ~8 minutes (extend/trim per Q&amp;A budget)</span>
+  </div>
+  <div class="meta">
+    <span><b>Stack</b>: React 19 · TypeScript · Tailwind CSS v4 · FastAPI · Python 3.13 · Pydantic v2 · Semgrep · CycloneDX 1.6 · Firebase · Vercel · Railway</span>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 1 — Opening
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S1</span> Opening &amp; hook <span class="duration">· 20 s</span></h2>
+  <div class="say">
+    Good morning. Team [name]. We are presenting <b>Blindspot ECDAT</b> — Enterprise Cryptographic Discovery
+    and Analysis Tool — our solution to Problem Statement <b>26164</b>, comprehensive <b>CBOM analytics</b>. Our
+    thesis is one line: <b>you cannot migrate cryptography you cannot find</b>.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 2 — Threat model
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S2</span> Threat model &amp; problem framing <span class="duration">· 45 s</span></h2>
+  <div class="say">
+    Post-quantum cryptography — <b>PQC</b> — is not academic. <b>Shor's algorithm</b> on a Cryptographically
+    Relevant Quantum Computer, a <b>CRQC</b>, breaks <b>RSA</b>, <b>ECDH</b>, <b>ECDSA</b>, and <b>Diffie-Hellman</b> outright.
+    <b>Grover's algorithm</b> halves the effective security of symmetric primitives — <b>AES</b>, <b>SHA-2</b>, <b>HMAC</b>.
+    The concrete threat today is <b>HNDL</b> — <b>Harvest Now, Decrypt Later</b> — any confidential ciphertext an
+    attacker captures now becomes plaintext the moment a CRQC exists. NIST has standardised <b>ML-KEM</b> under
+    <b>FIPS 203</b> for key encapsulation, and <b>ML-DSA</b> under <b>FIPS 204</b> for digital signatures. The
+    bottleneck is not the algorithms — it is discovering where classical cryptography is used across code,
+    dependencies, containers, binaries, infrastructure-as-code, and live network endpoints. That gap is what
+    ECDAT closes.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 3 — Architecture
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S3</span> Architecture overview <span class="duration">· 45 s</span></h2>
+  <div class="say">
+    ECDAT is a production-grade full-stack application. <b>Frontend</b>: <b>React 19</b> with <b>TypeScript</b>,
+    <b>Tailwind CSS v4</b>, <b>Recharts</b>, built with <b>Vite</b>, deployed to <b>Vercel</b>. <b>Backend</b>:
+    <b>FastAPI</b> on <b>Python 3.13</b>, <b>Pydantic v2</b> for schema validation, <b>Uvicorn</b> as the ASGI server,
+    deployed to <b>Railway</b>. <b>Identity</b>: <b>Firebase Auth</b> — ID tokens verified server-side with
+    <span class="mono">check_revoked=True</span>. <b>Persistence</b>: <b>Firestore</b> for scan and finding metadata,
+    Firebase <b>Cloud Storage</b> for CBOM artefacts. <b>Discovery engine</b>: <b>Semgrep</b> for
+    AST-level source analysis, Python's <span class="mono">ssl</span> and <span class="mono">cryptography</span>
+    libraries for TLS handshake and X.509 parsing, host container CLIs — Docker, Podman, or Nerdctl — for image
+    acquisition. <b>Test coverage</b>: <b>283 backend tests, 18 frontend tests</b>, all green.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 4 — Pipeline
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S4</span> The seven-stage pipeline <span class="duration">· 90 s</span></h2>
+  <div class="say">
+    The pipeline is <b>deterministic</b>: identical inputs always produce identical outputs. Every stage consumes
+    a single <b>normalised finding contract</b>, so a new discovery source plugs in without touching downstream
+    analysis.
+  </div>
+
+  <div class="say">
+    <b>Stage 1 · Discover.</b> Six independent scanners across six surfaces (detailed next slide).<br/>
+    <b>Stage 2 · Evidence.</b> Every finding carries <span class="mono">filePath</span>,
+    <span class="mono">lineNumber</span>, <span class="mono">codeSnippet</span>,
+    <span class="mono">detectionMethod</span>, and a <b>confidence score</b> banded into
+    <span class="mono">high</span> / <span class="mono">medium</span> / <span class="mono">low</span>.<br/>
+    <b>Stage 3 · CBOM generation.</b> Each finding becomes a <b>CycloneDX 1.6</b>
+    <span class="mono">cryptographic-asset</span> component — schema-validated JSON, carrying algorithm,
+    primitive, <span class="mono">parameterSetIdentifier</span>, mode, OID, and evidence occurrences.<br/>
+    <b>Stage 4 · Classify.</b> Artefact type, security goal — confidentiality, authenticity, or integrity —
+    data-lifetime <b>X</b> in years drawn from a usage-keyed policy table, criticality, and a
+    <span class="mono">isLongLivedTrustAnchor</span> flag for root-CA and code-signing keys.<br/>
+    <b>Stage 5 · Risk.</b> <b>Mosca's inequality</b>: <span class="mono">X + Y &gt; Z</span>. X is data lifetime,
+    Y is organisational migration time, Z is the quantum horizon. Sum exceeds Z → <b>Overdue</b>; between Z/2
+    and Z → <b>Transitional</b>; below → <b>Low-risk</b>. Z is configurable; every result carries its
+    provenance in <span class="mono">zSource</span>.<br/>
+    <b>Stage 6 · Recommend.</b> Deterministic strategy — <span class="mono">PQC</span> /
+    <span class="mono">HYBRID</span> / <span class="mono">DEFER</span> /
+    <span class="mono">REMEDIATE_NOW</span> / <span class="mono">INVESTIGATE</span>. Target is
+    <b>usage-aware</b>: RSA for key establishment → ML-KEM; RSA for signatures → ML-DSA. Each PQC recommendation
+    carries a <b>CostProfile</b> — public-key, ciphertext, signature, and private-key sizes in bytes, cited to
+    FIPS 203 / 204. <b>Published sizes, never fabricated latency.</b><br/>
+    <b>Stage 7 · Plan.</b> A five-wave migration roadmap: Immediate Remediation, Wave 1 PQC, Wave 2 Hybrid,
+    Wave 3 Monitor, Investigate. Priority score =
+    <span class="mono">tierWeight × 100 + criticalityWeight × 10 + blastRadius</span>, where blast radius is the
+    co-located crypto count as a change-impact proxy.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 5 — Six discovery surfaces
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S5</span> Six discovery surfaces <span class="duration">· 90 s</span></h2>
+  <div class="say">
+    <b>1 · Source code.</b> Semgrep AST rules for Python and OpenSSL-style C. Detects RSA, ECC, DH, AES, DES,
+    MD5, SHA-1 with parameter resolution via AST inspection. Detection method:
+    <span class="mono">semgrep_ast_confirmed</span>.<br/>
+    <b>2 · Dependency manifests.</b> <span class="mono">requirements.txt</span> parser flagging
+    crypto-providing packages — pycryptodome, cryptography, and equivalents. Detection method:
+    <span class="mono">dependency_manifest</span>.<br/>
+    <b>3 · Container images.</b> Host CLI — Docker, Podman, or Nerdctl —
+    <span class="mono">image inspect</span> to check the local cache, <span class="mono">image pull</span> if
+    missing, <span class="mono">image save</span> to produce a tarball. Layers flatten into a temporary rootfs
+    on the project volume — never <span class="mono">%TEMP%</span>, which conflicts with Windows Defender.
+    Extraction is defended: <b>zip-slip / path-traversal</b>, <b>symlink escape</b>, and <b>decompression-bomb</b>
+    guards. Source and dependency scanners then run against the rootfs unchanged.<br/>
+    <b>4 · Compiled binaries.</b> Fingerprint match against <b>SHA-256's eight H0 initial hash values</b>,
+    SHA-1's five words, MD5's four little-endian words — endian layout <b>disambiguates SHA-1 from MD5</b> —
+    AES S-box bytes, ASN.1 OIDs including <span class="mono">1.2.840.113549.1.1.1</span>
+    (rsaEncryption), and library brand strings for OpenSSL, wolfSSL, mbedTLS, libsodium, BoringSSL. Every
+    binary finding is <b>deliberately low-confidence</b>, auto-routed to
+    <span class="mono">needsVerification</span>. Detection method: <span class="mono">binary_signature</span>.<br/>
+    <b>5 · HSM and KMS declarations.</b> Terraform (<span class="mono">.tf</span>), CloudFormation
+    (<span class="mono">.yaml</span>), Kubernetes manifests, PKCS#11 configs, and SDK-client code. Recognises
+    <b>AWS KMS</b>, <b>GCP KMS</b>, <b>Azure Key Vault</b>, <b>AWS CloudHSM</b>, Azure Dedicated HSM, SoftHSM,
+    YubiHSM, SafeNet Luna, Entrust nShield, PyKCS11. Labelled <b>declared, not attested</b>. When Terraform
+    declares <span class="mono">key_spec = "RSA_2048"</span>, we resolve the algorithm; otherwise the finding
+    routes to <span class="mono">INVESTIGATE</span>. Detection method:
+    <span class="mono">infra_declaration</span>.<br/>
+    <b>6 · Live TLS / certificates.</b> Standard-library socket handshake reads peer certificate — issuer,
+    subject, key type, key bits, curve, signature algorithm, expiry — plus negotiated protocol and cipher
+    suite. The certificate's public-key algorithm runs through the same classify → risk → recommend chain.
+    <b>SSRF-guarded</b>: hostname resolves to a public address, private, loopback, link-local, and reserved
+    ranges are refused. Detection method: <span class="mono">tls_probe</span>.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 6 — Analytical depth
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="slide-tag">S6</span> Analytical depth <span class="duration">· 60 s</span></h2>
+  <div class="say">
+    Beyond scanning, three analytical features earn ECDAT its <i>analytics tool</i> label.
+  </div>
+  <div class="say">
+    <b>Compliance sensitivity.</b> Seven named Z presets: India CII Category A 2027, B 2028, C 2029; NIST IR
+    8547 2030 deprecation, 2035 disallow; mid-range CRQC estimate; demo default. The <i>same finding</i>
+    re-tiers as Z changes. Under a 15-year CRQC estimate, RSA-2048 with X + Y equal to eight years is
+    <b>Low-risk</b>; under India's 2027 Category A deadline where Z collapses to one year, the same finding is
+    <b>Overdue</b>. Policy dependency is made visible, not hidden.
+  </div>
+  <div class="say">
+    <b>HNDL exposure flag.</b> Derived from three fields — security goal is confidentiality; quantum threat is
+    <span class="mono">SHOR_BREAKS</span>; Mosca tier is Overdue. Confidentiality + Shor-breakable + overdue =
+    harvest-now-decrypt-later. Nothing new asserted; three real fields combined honestly.
+  </div>
+  <div class="say">
+    <b>Needs-verification flag.</b> True when detection confidence is low <i>or</i>
+    <span class="mono">parameterStatus</span> is <span class="mono">unresolved</span>. Surfaces uncertainty
+    rather than hiding it. Dashboard count and per-row badges on the findings table.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 7 — Security hardening
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <h2><span class="slide-tag">S7</span> Security hardening <span class="duration">· 45 s</span></h2>
+  <div class="say">
+    Every user input is treated as untrusted. <b>Fail-closed auth</b>:
+    <span class="mono">AUTH_DISABLED</span> is honoured only when
+    <span class="mono">BLINDSPOT_ENV</span> is the literal string <span class="mono">development</span>;
+    the default is <span class="mono">production</span>. Firebase ID tokens are verified with
+    <span class="mono">check_revoked=True</span>. <b>SSRF guards</b>: repository-URL scanning is HTTPS-only,
+    host-allowlisted, and rejects IP literals plus <span class="mono">localhost</span> /
+    <span class="mono">.local</span> / <span class="mono">.internal</span>; TLS scan rejects private,
+    loopback, and reserved ranges. Container extraction has <b>zip-slip</b>, <b>symlink escape</b>, and
+    <b>decompression-bomb</b> guards with byte and file-count budgets. Scan endpoint enforces a
+    <b>single-flight <span class="mono">asyncio.Lock</span></b> — HTTP 429 on overlap. The pipeline runs in a
+    thread pool via <span class="mono">asyncio.to_thread</span> so it never blocks the event loop.
+    <b>GET endpoints are scoped to the scan owner</b> — findings, roadmap, compliance, CBOM export return 404
+    to non-owners. <b>CSV export neutralises formula injection</b>. Error responses are generic — absolute
+    paths never leak to the client.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 8 — Deliverables vs PS 26164
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <h2><span class="slide-tag">S8</span> Deliverables vs PS 26164 <span class="duration">· 40 s</span></h2>
+  <div class="say">
+    Against the problem statement's <b>seven artefact types</b> — algorithms, keys, certificates, protocols,
+    libraries, hardware modules, cloud services — we cover <b>seven of seven</b>, with hardware modules and
+    cloud services labelled <i>declared, not attested</i>. Against the <b>four scan targets</b> — source,
+    libraries, binaries, container images — we cover <b>four of four</b>. We produce a schema-valid
+    <b>CycloneDX 1.6 CBOM</b>. We provide an interactive GUI with dashboard, findings table with sticky-header
+    scroll, finding-detail with a visible evidence → classification → Mosca → recommendation chain, CBOM
+    viewer, migration roadmap, compliance sensitivity, and a live TLS scan page. Every claim on screen maps to
+    code in the repository.
+  </div>
+
+  <table>
+    <tr><th>PS-mandated outcome</th><th>Blindspot coverage</th></tr>
+    <tr><td>Catalogue algorithms, keys, certs, protocols, libraries, HSMs, cloud services</td><td>7 of 7 — HSM/KMS labelled <i>declared, not attested</i></td></tr>
+    <tr><td>Quantum risk assessment via structured framework</td><td>Mosca X + Y &gt; Z, seven configurable Z presets</td></tr>
+    <tr><td>Classify by type, lifetime, criticality, quantum risk</td><td>Full — usage-keyed policy tables, security-goal split</td></tr>
+    <tr><td>PQC / Hybrid recommendations by risk, latency, cost</td><td>Deterministic; cost expressed as FIPS 203/204 byte sizes</td></tr>
+    <tr><td>Scan source, binaries, libraries, container images</td><td>4 of 4 scan targets, plus live TLS as bonus surface</td></tr>
+    <tr><td>Report in standardised format</td><td>CycloneDX 1.6 <span class="mono">cryptographic-asset</span></td></tr>
+    <tr><td>Interactive GUI to visualise the scan, risks, and results</td><td>Full application with 7 primary pages</td></tr>
+  </table>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 9 — Honesty as differentiator
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <h2><span class="slide-tag">S9</span> Honesty as differentiator <span class="duration">· 30 s</span></h2>
+  <div class="say">
+    Our unique property is what we <i>do not</i> do. We never fabricate numbers. <b>CostProfile</b> cites
+    FIPS 203 and FIPS 204 byte sizes, never measured latency. <b>Z provenance</b> travels with every Mosca
+    result. Findings carry explicit provenance labels — <span class="mono">semgrep_ast_confirmed</span>,
+    <span class="mono">dependency_manifest</span>, <span class="mono">binary_signature</span> (low, verify),
+    <span class="mono">infra_declaration</span> (declared, not attested), <span class="mono">tls_probe</span>,
+    cached. Uncertain findings surface through <span class="mono">needsVerification</span>. When we do not
+    attest a capability — HSM or cloud KMS internal state — we say so. That intellectual honesty is our
+    differentiator.
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     SLIDE 10 — Close
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <h2><span class="slide-tag">S10</span> Close <span class="duration">· 15 s</span></h2>
+  <div class="say">
+    To close: Blindspot ECDAT scans <b>six discovery surfaces</b>, produces a <b>CycloneDX CBOM</b>, runs
+    <b>Mosca's inequality</b> against real regulatory horizons, recommends <b>NIST PQC targets</b> with sourced
+    sizes, and sequences it all into a <b>five-wave migration roadmap</b>. <b>Two hundred and eighty-three
+    backend tests. Zero fabricated data.</b> You cannot migrate cryptography you cannot find. Thank you.
+  </div>
+</div>
+
+<div class="pagebreak"></div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     APPENDIX A — TERM &amp; ACRONYM GLOSSARY (one line each)
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Appendix A · Term &amp; acronym glossary — one line each</h2>
+
+  <h4>Cryptography &amp; standards</h4>
+  <table>
+    <tr><td class="mono">PQC</td><td>Post-Quantum Cryptography — algorithms resistant to quantum attack.</td></tr>
+    <tr><td class="mono">CRQC</td><td>Cryptographically Relevant Quantum Computer — hypothetical device that runs Shor at scale.</td></tr>
+    <tr><td class="mono">Shor</td><td>Quantum algorithm that breaks RSA, ECDH, ECDSA, DSA, and Diffie-Hellman.</td></tr>
+    <tr><td class="mono">Grover</td><td>Quantum search algorithm that halves symmetric-key effective strength.</td></tr>
+    <tr><td class="mono">HNDL / SNDL</td><td>Harvest-Now-Decrypt-Later — capture ciphertext today, decrypt post-CRQC.</td></tr>
+    <tr><td class="mono">RSA</td><td>Rivest–Shamir–Adleman public-key algorithm — broken by Shor.</td></tr>
+    <tr><td class="mono">ECDH / ECDSA</td><td>Elliptic-Curve Diffie-Hellman / Digital Signature Algorithm — broken by Shor.</td></tr>
+    <tr><td class="mono">DH</td><td>Classical Diffie-Hellman key exchange — broken by Shor.</td></tr>
+    <tr><td class="mono">AES</td><td>Advanced Encryption Standard — symmetric block cipher; Grover halves effective bits.</td></tr>
+    <tr><td class="mono">SHA-2 / SHA-1 / MD5</td><td>Hash families; SHA-1 and MD5 are collision-broken today.</td></tr>
+    <tr><td class="mono">ML-KEM</td><td>Module-Lattice-Based Key Encapsulation Mechanism (FIPS 203). Successor to RSA-KEM / ECDH.</td></tr>
+    <tr><td class="mono">ML-DSA</td><td>Module-Lattice Digital Signature Algorithm (FIPS 204). Successor to ECDSA / RSA-PSS.</td></tr>
+    <tr><td class="mono">FIPS 203 / 204</td><td>NIST Federal Information Processing Standards for ML-KEM and ML-DSA.</td></tr>
+    <tr><td class="mono">NIST IR 8547</td><td>NIST transition plan: deprecate classical PKC by 2030, disallow by 2035.</td></tr>
+    <tr><td class="mono">India CII (MeitY)</td><td>Categorised PQC deadlines: A → 2027, B → 2028, C → 2029.</td></tr>
+    <tr><td class="mono">Hybrid crypto</td><td>Classical + PQC in the same handshake or signature for transition safety.</td></tr>
+    <tr><td class="mono">OID</td><td>Object Identifier — ASN.1 dotted-decimal identifier for a crypto primitive.</td></tr>
+    <tr><td class="mono">HSM</td><td>Hardware Security Module — tamper-resistant crypto device (Luna, nShield, YubiHSM).</td></tr>
+    <tr><td class="mono">KMS</td><td>Key Management Service — cloud crypto service (AWS/GCP/Azure).</td></tr>
+    <tr><td class="mono">PKCS#11</td><td>Vendor-neutral C API for talking to HSMs / cryptographic tokens.</td></tr>
+    <tr><td class="mono">SoftHSM / YubiHSM / Luna / nShield</td><td>PKCS#11 modules — software, USB, and rack HSMs.</td></tr>
+  </table>
+
+  <h4>Blindspot concepts</h4>
+  <table>
+    <tr><td class="mono">CBOM</td><td>Cryptographic Bill of Materials — inventory of every crypto asset.</td></tr>
+    <tr><td class="mono">CycloneDX 1.6</td><td>OWASP-standardised BOM schema; supports <span class="mono">cryptographic-asset</span> components.</td></tr>
+    <tr><td class="mono">Mosca's inequality</td><td><span class="mono">X + Y &gt; Z</span>; X = data lifetime, Y = migration time, Z = quantum horizon.</td></tr>
+    <tr><td class="mono">Overdue / Transitional / Low-risk</td><td>Three Mosca tiers assigned per finding.</td></tr>
+    <tr><td class="mono">CostProfile</td><td>Public-key, ciphertext, signature, private-key sizes in bytes (FIPS 203/204 sourced).</td></tr>
+    <tr><td class="mono">Blast radius</td><td>Co-located crypto count per file — change-impact proxy in the roadmap.</td></tr>
+    <tr><td class="mono">Wave 1 / 2 / 3</td><td>PQC / Hybrid / Monitor migration waves in the roadmap.</td></tr>
+    <tr><td class="mono">needsVerification</td><td>Flag: low detection confidence <i>or</i> unresolved parameter.</td></tr>
+    <tr><td class="mono">Provenance labels</td><td>Every finding tagged with how it was found: AST, manifest, fingerprint, declaration, TLS probe.</td></tr>
+  </table>
+
+  <h4>Tech stack</h4>
+  <table>
+    <tr><td class="mono">FastAPI</td><td>Async Python web framework used for the backend API.</td></tr>
+    <tr><td class="mono">Pydantic v2</td><td>Data-validation library used for models with alias-generated camelCase output.</td></tr>
+    <tr><td class="mono">Uvicorn</td><td>ASGI server hosting FastAPI in dev and prod.</td></tr>
+    <tr><td class="mono">Semgrep</td><td>Open-source AST-level static analyser; drives source scanning.</td></tr>
+    <tr><td class="mono">React 19 / TypeScript</td><td>Frontend framework and type system.</td></tr>
+    <tr><td class="mono">Tailwind CSS v4</td><td>Utility-first CSS with design tokens; no external UI kit.</td></tr>
+    <tr><td class="mono">Vite</td><td>Frontend build tool + dev server.</td></tr>
+    <tr><td class="mono">Recharts</td><td>Composable React charting library used on the dashboard.</td></tr>
+    <tr><td class="mono">Firebase Auth</td><td>Identity provider; backend verifies ID tokens with <span class="mono">check_revoked=True</span>.</td></tr>
+    <tr><td class="mono">Firestore</td><td>Serverless NoSQL DB storing scan and finding metadata.</td></tr>
+    <tr><td class="mono">Cloud Storage</td><td>Firebase object store for CBOM JSON and findings JSON.</td></tr>
+    <tr><td class="mono">Vercel / Railway</td><td>Frontend and backend hosting respectively.</td></tr>
+    <tr><td class="mono">Docker / Podman / Nerdctl</td><td>Container CLIs; any of the three drives image pull + save.</td></tr>
+    <tr><td class="mono">Terraform / CloudFormation</td><td>Infrastructure-as-Code declaration formats scanned for HSM/KMS references.</td></tr>
+    <tr><td class="mono">Kubernetes / SealedSecret / ExternalSecret</td><td>K8s secret-management resources referring to a KMS backend.</td></tr>
+  </table>
+
+  <h4>Security terms</h4>
+  <table>
+    <tr><td class="mono">SSRF</td><td>Server-Side Request Forgery — mitigated by allowlist + IP-literal + private-range rejection.</td></tr>
+    <tr><td class="mono">Zip-slip</td><td>Path-traversal via tar/zip entries with <span class="mono">../</span> — guarded during image extraction.</td></tr>
+    <tr><td class="mono">Decompression bomb</td><td>Small archive that expands to gigabytes — mitigated with byte and file budgets.</td></tr>
+    <tr><td class="mono">CSV formula injection</td><td>Cells starting with = + − @ executing in spreadsheets — neutralised in exports.</td></tr>
+    <tr><td class="mono">Fail-closed</td><td>Missing config defaults to the safe state (auth enforced).</td></tr>
+    <tr><td class="mono">Single-flight lock</td><td><span class="mono">asyncio.Lock</span> ensures only one scan runs at a time; overlap → HTTP 429.</td></tr>
+    <tr><td class="mono">Owner-scoped store</td><td>GET endpoints refuse to serve one user's scan to another user.</td></tr>
+  </table>
+</div>
+
+<div class="pagebreak"></div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     APPENDIX B — Q&amp;A ammunition
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Appendix B · Q&amp;A ammunition (one-line answers)</h2>
+
+  <div class="grid-2">
+    <div class="card"><b>Why Semgrep and not pure regex?</b><br/>AST-level matching resolves <span class="mono">RSA.generate(2048)</span> even when the argument is a named variable, and it is language-aware — false positives from strings and comments are eliminated.</div>
+    <div class="card"><b>Why CycloneDX and not SPDX?</b><br/>CycloneDX 1.6 is the only widely adopted BOM standard that natively models cryptographic assets via <span class="mono">cryptographic-asset</span> components.</div>
+    <div class="card"><b>Why is Z a configuration parameter?</b><br/>Because it is an assumption, not a fact. We honour that by making it configurable and shipping seven named regulatory presets, each with a provenance string.</div>
+    <div class="card"><b>Why fingerprint binaries at low confidence?</b><br/>Because seeing OpenSSL S-box bytes in a binary tells you what is <i>linked</i>, not what is <i>used</i>. Full disassembly is out of scope; the current design surfaces uncertainty.</div>
+    <div class="card"><b>Why call HSM/KMS coverage &ldquo;declared, not attested&rdquo;?</b><br/>Live attestation requires vendor SDKs and credentials — out of scope for a hackathon. Declaration scanning is real, provable coverage that lays a clear upgrade path.</div>
+    <div class="card"><b>How is HNDL exposure computed?</b><br/>Three real fields combined: <span class="mono">securityGoal == confidentiality</span> ∧ <span class="mono">quantumRisk == SHOR_BREAKS</span> ∧ <span class="mono">riskTier == overdue</span>.</div>
+    <div class="card"><b>How do you avoid claiming fake latency?</b><br/>CostProfile contains <i>bytes</i> — <span class="mono">publicKeyBytes</span>, <span class="mono">ciphertextBytes</span>, <span class="mono">signatureBytes</span> — sourced from FIPS 203/204. The word &ldquo;latency&rdquo; never appears in output.</div>
+    <div class="card"><b>What if Firebase is down?</b><br/>The pipeline is designed best-effort for cloud persistence. Findings are served from an in-memory owner-scoped store; local artefacts are still written to disk.</div>
+    <div class="card"><b>Cloud vs air-gap?</b><br/>Cloud-native deployment for the demo; the backend is a single container so it also runs on-prem without change. No external network calls beyond user-supplied targets.</div>
+    <div class="card"><b>What is the minimum config to reproduce?</b><br/>Python 3.10+, Node 20+, Semgrep CLI on PATH, git; optionally a container CLI for image scans. Any Linux/macOS/Windows dev machine.</div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     APPENDIX C — DEMO CUES
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Appendix C · Live demo cues (if judges ask &ldquo;show it running&rdquo;)</h2>
+
+  <div class="cue"><b>Cue 1 · Discover.</b> Open <span class="kbd">/scan</span>. Toggle Container Image. Type <span class="kbd">python:3.11-slim</span> → <b>Start Discovery Scan</b>. Backend log shows <span class="mono">image pull → save → extract → semgrep → findings</span>.</div>
+  <div class="cue"><b>Cue 2 · Evidence.</b> On <span class="kbd">/findings</span>, click any RSA row. Left column: file, line, code snippet. Detection method: <span class="mono">semgrep_ast_confirmed</span>, confidence <span class="mono">high</span>.</div>
+  <div class="cue"><b>Cue 3 · Mosca.</b> Scroll the finding detail to <b>Stage 03 · Mosca risk</b>. Read X + Y &gt; Z; point to the overdue overflow bar; call out <span class="mono">zSource</span>.</div>
+  <div class="cue"><b>Cue 4 · Cost.</b> Below Mosca, the Recommendation card has a <b>Cost &amp; Size Profile</b>. Read the public-key bytes, cite FIPS 203.</div>
+  <div class="cue"><b>Cue 5 · Compliance sensitivity.</b> Open <span class="kbd">/compliance</span>. Click <b>India CII 2027</b>. Overdue jumps from 5 to 8. Point at the delta chip.</div>
+  <div class="cue"><b>Cue 6 · Roadmap.</b> Open <span class="kbd">/roadmap</span>. Five waves visible on the top strip. Click Wave 1 → priority-ranked items with cost bands.</div>
+  <div class="cue"><b>Cue 7 · TLS.</b> Open <span class="kbd">/tls</span>. Scan <span class="kbd">github.com</span>. TLSv1.3, ECDSA-P256 cert → <span class="mono">overdue</span> → ML-DSA-65.</div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════
+     FOOTER
+     ═════════════════════════════════════════════════════════════════════ -->
+<div class="footnote" style="margin-top: 22pt; border-top: 1px solid #CBD5E1; padding-top: 6pt;">
+  Blindspot ECDAT — SIH 2026 · PS 26164 · Enterprise Cryptographic Discovery &amp; Analysis Tool.
+  Every claim in this script maps to code in the repository under <span class="mono">backend/app/</span> and
+  <span class="mono">frontend/src/</span>. Test suite: 283 backend, 18 frontend, all green.
+</div>
+
+</body>
+</html>

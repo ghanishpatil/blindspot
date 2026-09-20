@@ -400,20 +400,7 @@ export const RoadmapPage: React.FC = () => {
     fetchRoadmap()
       .then((roadmap) => {
         if (cancelled) return;
-        // Defensive: normalise malformed/partial responses. Any missing field
-        // is treated as empty so a rogue backend response cannot crash render.
-        const safe: MigrationRoadmap = {
-          scanId: roadmap?.scanId ?? null,
-          totalItems: typeof roadmap?.totalItems === 'number' ? roadmap.totalItems : 0,
-          waves: Array.isArray(roadmap?.waves)
-            ? roadmap.waves.map((w) => ({
-                ...w,
-                items: Array.isArray(w?.items) ? w.items : [],
-                itemCount: typeof w?.itemCount === 'number' ? w.itemCount : (Array.isArray(w?.items) ? w.items.length : 0),
-              }))
-            : [],
-        } as MigrationRoadmap;
-        setState(safe.totalItems === 0 || safe.waves.length === 0 ? { kind: 'empty' } : { kind: 'loaded', roadmap: safe });
+        setState(roadmap.totalItems === 0 ? { kind: 'empty' } : { kind: 'loaded', roadmap });
       })
       .catch((err: unknown) => {
         if (cancelled) return;

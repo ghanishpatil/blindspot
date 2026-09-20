@@ -80,8 +80,7 @@ export default function Dashboard() {
   if (load.kind === 'loading') return <LoadingState />;
   if (load.kind === 'error') return <ErrorState message={load.message} />;
 
-  const findings: Finding[] = Array.isArray(load.findings) ? load.findings : DEMO_PLANTED_FINDINGS;
-  const health: HealthResponse = load.health ?? DEMO_HEALTH_RESPONSE;
+  const { findings, health } = load;
   return (
     <div className="space-y-8">
       <Header scanning={scanning} onRunScan={handleRunScan} />
@@ -402,7 +401,7 @@ const SubsystemStrip: React.FC<{ health: HealthResponse }> = ({ health }) => (
     <div className="flex flex-wrap items-center gap-4">
       <span className="eyebrow-muted">Subsystem readiness</span>
       <div className="flex flex-wrap items-center gap-4 text-[11px]">
-        {Object.entries(health.subsystems ?? {}).map(([name, status]) => (
+        {Object.entries(health.subsystems).map(([name, status]) => (
           <span key={name} className="flex items-center gap-1.5 font-mono">
             <span
               className={`h-1.5 w-1.5 rounded-full ${status.available ? 'bg-[#4FB37A]' : 'bg-[#E9A73A]'}`}

@@ -206,8 +206,7 @@ export async function fetchFindings(params: {
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
   try {
-    const result = await request<Finding[]>(`/api/findings${suffix}`);
-    return Array.isArray(result) ? result : [];
+    return await request<Finding[]>(`/api/findings${suffix}`);
   } catch (error) {
     if (error && typeof error === 'object' && 'status' in error && (error as any).status === 0) {
       return DEMO_PLANTED_FINDINGS;
