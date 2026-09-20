@@ -401,7 +401,7 @@ const SubsystemStrip: React.FC<{ health: HealthResponse }> = ({ health }) => (
     <div className="flex flex-wrap items-center gap-4">
       <span className="eyebrow-muted">Subsystem readiness</span>
       <div className="flex flex-wrap items-center gap-4 text-[11px]">
-        {Object.entries(health.subsystems).map(([name, status]) => (
+        {Object.entries(health.subsystems ?? {}).map(([name, status]) => (
           <span key={name} className="flex items-center gap-1.5 font-mono">
             <span
               className={`h-1.5 w-1.5 rounded-full ${status.available ? 'bg-[#4FB37A]' : 'bg-[#E9A73A]'}`}

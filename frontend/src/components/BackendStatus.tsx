@@ -72,9 +72,10 @@ export function BackendStatus() {
 
   const { health } = state;
   const isReady = health.readiness === 'ready';
+  const degraded = Array.isArray(health.degradedSubsystems) ? health.degradedSubsystems : [];
   const detail = isReady
-    ? `${health.service} v${health.version}`
-    : `Not ready: ${health.degradedSubsystems.join(', ')}`;
+    ? `${health.service ?? 'Backend'} v${health.version ?? '?'}`
+    : `Not ready: ${degraded.length > 0 ? degraded.join(', ') : 'unknown subsystem'}`;
 
   return (
     <span className="flex items-center gap-2 text-xs text-ink-muted" title={detail}>
