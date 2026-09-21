@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 import { BackendStatus } from '@/components/BackendStatus';
+import { ExportReportButtons } from '@/components/ExportReportButtons';
 import { Icon, type IconName } from '@/components/Icon';
 import { downloadCbom } from '@/services/api';
 
@@ -137,6 +138,8 @@ export function AppShell({ children }: AppShellProps) {
               <Icon name="download" size={14} />
               <span>Export CBOM</span>
             </button>
+
+            <ExportReportButtons />
 
             <button
               onClick={() => navigate('/login')}

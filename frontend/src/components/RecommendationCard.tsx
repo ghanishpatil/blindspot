@@ -17,7 +17,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommen
     );
   }
 
-  const { strategy, algorithm, parameterSet, rationale, replaces, priority, effort, migrationNotes, references, costProfile } = recommendation;
+  const { strategy, algorithm, parameterSet, rationale, replaces, priority, effort, migrationNotes, references, costProfile, latencyProfile } = recommendation;
 
   const costBandClass =
     costProfile?.relativeCost === 'high'
@@ -26,8 +26,24 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommen
         ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
         : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
 
+  const latencyBandClass =
+    latencyProfile?.relativeLatency === 'high'
+      ? 'border-red-500/30 bg-red-500/10 text-red-400'
+      : latencyProfile?.relativeLatency === 'moderate'
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+
   const fmtBytes = (n: number | null | undefined): string =>
     n == null ? '—' : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
+
+  // Cycle formatting: keep it honest by showing units. Rounded cycle counts
+  // preserve the "reference benchmark, not measured" quality of the numbers.
+  const fmtCycles = (n: number | null | undefined): string => {
+    if (n == null) return '—';
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)} M cyc`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)} k cyc`;
+    return `${n} cyc`;
+  };
 
   let strategyBadgeClass = 'border-blue-500/30 bg-blue-500/10 text-blue-400';
   let strategyLabel: string = strategy;
@@ -146,6 +162,97 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommen
             {costProfile.sources.map((src, idx) => (
               <span key={idx} className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">{src}</span>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/*
+        Reference Latency Profile.
+
+        Every value below is a *reference benchmark* pulled from published
+        sources. The heading, the platform-note italic, and the source chips
+        collectively make sure a reviewer cannot mistake this for
+        latency measured on the scanned system.
+      */}
+      {latencyProfile ? (
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Reference Latency
+            </h4>
+            <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold capitalize ${latencyBandClass}`}>
+              {latencyProfile.relativeLatency} latency
+            </span>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {latencyProfile.keygenCycles != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Keygen</span>
+                <span className="font-mono text-sm text-slate-200">{fmtCycles(latencyProfile.keygenCycles)}</span>
+              </div>
+            ) : null}
+            {latencyProfile.encapsulateCycles != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Encapsulate</span>
+                <span className="font-mono text-sm text-slate-200">{fmtCycles(latencyProfile.encapsulateCycles)}</span>
+                {latencyProfile.classicalEncapsulateCycles != null ? (
+                  <span className="block text-[10px] text-slate-500">vs ~{fmtCycles(latencyProfile.classicalEncapsulateCycles)} classical</span>
+                ) : null}
+              </div>
+            ) : null}
+            {latencyProfile.decapsulateCycles != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Decapsulate</span>
+                <span className="font-mono text-sm text-slate-200">{fmtCycles(latencyProfile.decapsulateCycles)}</span>
+                {latencyProfile.classicalDecapsulateCycles != null ? (
+                  <span className="block text-[10px] text-slate-500">vs ~{fmtCycles(latencyProfile.classicalDecapsulateCycles)} classical</span>
+                ) : null}
+              </div>
+            ) : null}
+            {latencyProfile.signCycles != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Sign</span>
+                <span className="font-mono text-sm text-slate-200">{fmtCycles(latencyProfile.signCycles)}</span>
+                {latencyProfile.classicalSignCycles != null ? (
+                  <span className="block text-[10px] text-slate-500">vs ~{fmtCycles(latencyProfile.classicalSignCycles)} classical</span>
+                ) : null}
+              </div>
+            ) : null}
+            {latencyProfile.verifyCycles != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">Verify</span>
+                <span className="font-mono text-sm text-slate-200">{fmtCycles(latencyProfile.verifyCycles)}</span>
+                {latencyProfile.classicalVerifyCycles != null ? (
+                  <span className="block text-[10px] text-slate-500">vs ~{fmtCycles(latencyProfile.classicalVerifyCycles)} classical</span>
+                ) : null}
+              </div>
+            ) : null}
+            {latencyProfile.handshakeExtraBytes != null ? (
+              <div className="rounded-lg border border-[#222B35] bg-[#0C1117] p-2.5">
+                <span className="block text-[10px] uppercase tracking-wider text-slate-500">TLS handshake +</span>
+                <span className="font-mono text-sm text-slate-200">{fmtBytes(latencyProfile.handshakeExtraBytes)}</span>
+              </div>
+            ) : null}
+          </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-slate-300">{latencyProfile.summary}</p>
+
+          {/* Platform disclaimer — muted italic, always visible. */}
+          <p className="mt-1.5 text-[10px] italic text-slate-500">
+            Platform: {latencyProfile.platformNote}
+          </p>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+            <span className="italic">{latencyProfile.basis}</span>
+            {latencyProfile.sources.map((src, idx) => (
+              <span key={idx} className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">{src}</span>
+            ))}
+            {latencyProfile.handshakeExtraBytesSource ? (
+              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">
+                {latencyProfile.handshakeExtraBytesSource}
+              </span>
+            ) : null}
           </div>
         </div>
       ) : null}

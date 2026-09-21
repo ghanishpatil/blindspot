@@ -30,6 +30,35 @@ needs to change. Everything in "To Add" is additive on top of it.
 >
 > Also done: GitHub-URL ingestion (Phase 0 CHANGE 3). **All four code features (items 1–4) are
 > complete. Only item 5 remains — a slide-deck re-order, not code.**
+>
+> ★ **PS-alignment sprint R1 → R5 is COMPLETE.** All five items from
+> `PS_ALIGNMENT_PLAN.md` §2 rows 1, 2, 3, 5, and 6 are shipped:
+>
+> - **R1 — static cert & key file discovery** (17 tests): `app/scanner/static_crypto.py`
+>   walks `.pem/.crt/.cer/.der/.key`, inline PEM, and keystore files; new `DetectionMethod`
+>   enum values `STATIC_CERT_FILE`, `STATIC_KEY_MATERIAL`, `STATIC_KEYSTORE`.
+> - **R2 — config-file crypto policy scanning** (20 tests): `app/scanner/config_policy.py`
+>   covers 7 config families (nginx, apache, sshd/ssh_config, openssl.cnf, java.security,
+>   postgresql.conf, web.config); new `ArtefactType.PROTOCOL` and `DetectionMethod.CONFIG_POLICY_DECLARED`.
+> - **R3 — multi-language source rules** (opt-in tests, gated on `BLINDSPOT_RUN_MULTILANG_TESTS=1`):
+>   `java_crypto.yaml`, `javascript_crypto.yaml`, `go_crypto.yaml` in `app/scanner/rules/`;
+>   extractor skips Python `ast.parse` on non-Python files (kept at HIGH confidence);
+>   `_SHOR_BREAKS` extended for Ed25519 / Ed448 / X25519 / X448 / ChaCha20.
+> - **R4 — multi-ecosystem dependency parsers** (20 tests): `app/scanner/dependency_parser.py`
+>   walks Maven `pom.xml`, npm `package.json`, and Go `go.mod` in addition to `requirements*.txt`;
+>   `node_modules`, `target`, and other build dirs are skipped.
+> - **R5 — cited reference latency modelling** (29 backend + 8 frontend tests):
+>   `LatencyProfile` model with mandatory `source` and `platform_note` fields; curated
+>   `app/recommend/latency.py` covers ML-KEM-512/768/1024 and ML-DSA-44/65/87 with cycle
+>   counts sourced from CRYSTALS Round-3 submissions and Cloudflare's 2021 handshake paper;
+>   recommender attaches `latency_profile`; frontend `Reference Latency` panel renders it
+>   with a "not measured on the scanned system" disclaimer and citation chips.
+>
+> **Full suite:** backend `pytest` = **369 passed / 26 skipped** (baseline 320); frontend
+> `tsc -b`, `npm run build`, `npm test -- --run` = 26 passed. Zero regressions.
+>
+> Deferred: R6 (executive PDF), R7 (HSM attestation), R8 (cloud KMS attestation) — the last
+> three PS-closure items, tracked in `PS_ALIGNMENT_PLAN.md`.
 
 ---
 

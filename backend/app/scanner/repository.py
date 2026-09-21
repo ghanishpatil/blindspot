@@ -28,9 +28,78 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, subprocess_timeout
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_git_stderr(stderr: str, exit_code: int) -> str:
+    """Turn raw ``git clone`` stderr into a short, user-facing message.
+
+    ``git`` is verbose and its ANSI progress lines dominate the output; the
+    interesting bit is usually one ``fatal:`` line. This helper looks for
+    the well-known failure signatures first and only falls back to raw
+    output when nothing matches. That way the UI shows an actionable
+    message instead of a wall of clone progress.
+    """
+    text = (stderr or "").strip()
+    lower = text.lower()
+
+    # Order matters: the most specific / actionable phrasings first.
+    if "repository not found" in lower or ("http/2 stream" in lower and "404" in lower):
+        return (
+            "Repository not found. Check the URL and confirm the "
+            "repository is public -- Blindspot does not clone private repos."
+        )
+    if (
+        "authentication failed" in lower
+        or "invalid username or password" in lower
+        or "access denied" in lower
+        or "requested url returned error: 401" in lower
+        or "requested url returned error: 403" in lower
+    ):
+        return (
+            "Authentication required. Blindspot only clones public "
+            "repositories -- point it at a public URL instead."
+        )
+    if "could not resolve host" in lower:
+        return (
+            "Could not resolve the git host over DNS. Check your "
+            "network connection and the host portion of the URL."
+        )
+    if (
+        "connection refused" in lower
+        or "connection timed out" in lower
+        or "failed to connect" in lower
+        or "network is unreachable" in lower
+        or "operation timed out" in lower
+    ):
+        return (
+            "Network unreachable while contacting the git host. The "
+            "host may be down, or your outbound network may block it."
+        )
+    if "ssl certificate problem" in lower or "server certificate verification failed" in lower:
+        return (
+            "TLS certificate verification failed for the git host. "
+            "Refusing to clone over an untrusted connection."
+        )
+    if "unable to access" in lower and "the requested url returned error" in lower:
+        # Preserve the exact HTTP-error line so 5xx / 429 surfaces.
+        for line in text.splitlines():
+            if "the requested url returned error" in line.lower():
+                return line.strip()
+
+    # Fall back to the first ``fatal:`` line -- git conventionally names
+    # the root cause there.
+    for line in text.splitlines():
+        clean = line.strip()
+        if clean.lower().startswith("fatal:"):
+            return clean
+
+    # Nothing recognisable -- return the trimmed stderr so no signal is lost.
+    if text:
+        return text[:500]
+    return f"git clone exited with code {exit_code} but produced no error output."
 
 
 def remove_clone(path: Path) -> None:
@@ -148,17 +217,29 @@ def clone_repository(url: str, settings: Settings | None = None) -> Path:
     ]
     logger.info("Cloning %s -> %s", validated, dest)
 
+    # A configured timeout of 0 means "wait as long as it takes" -- a large
+    # public repo on a slow link can legitimately need many minutes.
+    timeout = subprocess_timeout(settings.repo_clone_timeout_seconds)
+
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=settings.repo_clone_timeout_seconds,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         remove_clone(dest)
+        # This branch only runs when the operator explicitly configured a
+        # positive REPO_CLONE_TIMEOUT_SECONDS. The default 0 disables the
+        # timeout entirely, so an accidental "clone timed out" message on
+        # a big repo is impossible under default settings.
         raise RepositoryError(
-            f"Clone timed out after {settings.repo_clone_timeout_seconds}s."
+            f"Clone was cancelled after {settings.repo_clone_timeout_seconds}s "
+            "(REPO_CLONE_TIMEOUT_SECONDS). Set REPO_CLONE_TIMEOUT_SECONDS=0 "
+            "to let large clones run to completion."
         ) from exc
     except FileNotFoundError as exc:
         remove_clone(dest)
@@ -166,13 +247,16 @@ def clone_repository(url: str, settings: Settings | None = None) -> Path:
             f"git executable not found (configured as {settings.git_path!r}). "
             "Install git or set GIT_PATH."
         ) from exc
+    except OSError as exc:
+        remove_clone(dest)
+        raise RepositoryError(
+            f"Could not launch git ({type(exc).__name__}: {exc})."
+        ) from exc
 
     if proc.returncode != 0:
         remove_clone(dest)
-        stderr = (proc.stderr or "").strip()[:500]
-        raise RepositoryError(
-            f"git clone failed (exit {proc.returncode}): {stderr or 'no error output'}"
-        )
+        detail = _classify_git_stderr(proc.stderr or "", proc.returncode)
+        raise RepositoryError(detail)
 
     return dest
 

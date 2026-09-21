@@ -92,9 +92,14 @@ class Settings(BaseSettings):
         description="Semgrep executable. Override if it is not on PATH.",
     )
     semgrep_timeout_seconds: int = Field(
-        default=120,
-        ge=1,
-        description="Hard timeout for a single semgrep invocation.",
+        default=0,
+        ge=0,
+        description=(
+            "Hard timeout for a single semgrep invocation, in seconds. "
+            "Zero (the default) means unlimited -- the scan runs to "
+            "completion no matter how long it takes. Set a positive value "
+            "only if you deliberately want a safety-net cap."
+        ),
     )
 
     scan_work_dir: str = Field(
@@ -130,6 +135,106 @@ class Settings(BaseSettings):
         description="Skip individual infra/config files larger than this.",
     )
 
+    # --- Static cert / key / keystore discovery ---------------------------
+    # Reads certificates and key material *as bytes* from the scanned target —
+    # the file itself is the evidence, so findings sit at high confidence.
+    static_crypto_scan_enabled: bool = Field(
+        default=True,
+        description=(
+            "Discover static certificate, key, and keystore artefacts on disk. "
+            "Scans .pem/.crt/.cer/.der/.key files and inline PEM markers in "
+            "source and config files."
+        ),
+    )
+    static_crypto_max_scan_mb: int = Field(
+        default=5,
+        ge=1,
+        description="Skip individual cert/key files larger than this.",
+    )
+
+    # --- Config-file crypto policy scanning -------------------------------
+    # Reads protocol / cipher / KEX / MAC / hostkey declarations from server
+    # and JDK configuration. Declarations are *what the admin asked for* —
+    # live probing (TLS scanner) proves what the server actually negotiates.
+    config_policy_scan_enabled: bool = Field(
+        default=True,
+        description=(
+            "Discover crypto policy declarations in server / JDK config files. "
+            "Covers nginx, Apache, sshd_config, ssh_config, openssl.cnf, "
+            "java.security, postgresql.conf, and .NET web.config."
+        ),
+    )
+    config_policy_max_scan_mb: int = Field(
+        default=2,
+        ge=1,
+        description="Skip individual config files larger than this.",
+    )
+
+    # --- Live PKCS#11 / HSM attestation (R7) ------------------------------
+    # Opens a real PKCS#11 session against a configured module (SoftHSM,
+    # YubiHSM, Luna, nShield, ...) and enumerates keys. Opt-in because it
+    # requires a system PKCS#11 library and (optionally) a token PIN.
+    pkcs11_scan_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable live PKCS#11 attestation. Requires python-pkcs11 to be "
+            "installed and a valid pkcs11_module_path pointing at the "
+            "vendor's PKCS#11 shim (libsofthsm2.so, libykcs11.dll, ...)."
+        ),
+    )
+    pkcs11_module_path: str = Field(
+        default="",
+        description=(
+            "Absolute path to the PKCS#11 shim library. Empty disables the "
+            "scanner even when pkcs11_scan_enabled is true."
+        ),
+    )
+    pkcs11_token_label: str = Field(
+        default="",
+        description=(
+            "Optional token label. When empty, every token the module "
+            "exposes is enumerated read-only."
+        ),
+    )
+    pkcs11_pin: str = Field(
+        default="",
+        description=(
+            "Optional user PIN for token login. Most HSMs expose public-key "
+            "and certificate metadata (algorithm, size, curve) WITHOUT a "
+            "PIN, so leaving this empty is often correct."
+        ),
+    )
+    pkcs11_scan_timeout_seconds: int = Field(
+        default=30,
+        ge=1,
+        description="Hard cap on PKCS#11 session time per scan.",
+    )
+
+    # --- Live AWS KMS attestation (R8) ------------------------------------
+    aws_kms_scan_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable live AWS KMS attestation. Requires boto3 to be "
+            "installed and AWS credentials (env, shared config, or IAM "
+            "role) resolvable via the standard boto3 credential chain."
+        ),
+    )
+    aws_kms_region: str = Field(
+        default="",
+        description=(
+            "AWS region to enumerate KMS keys in. Empty falls back to the "
+            "boto3 session default."
+        ),
+    )
+    aws_kms_max_keys: int = Field(
+        default=100,
+        ge=1,
+        description=(
+            "Cap on the number of KMS keys the scanner will describe. "
+            "Prevents unbounded listings on very large AWS accounts."
+        ),
+    )
+
     # --- Live TLS / certificate scanning ----------------------------------
     tls_scan_enabled: bool = Field(
         default=True,
@@ -152,9 +257,13 @@ class Settings(BaseSettings):
         description="Cap on total bytes extracted from an image (bomb guard).",
     )
     container_cli_timeout_seconds: int = Field(
-        default=300,
-        ge=1,
-        description="Hard timeout for a container CLI 'save' when pulling by reference.",
+        default=0,
+        ge=0,
+        description=(
+            "Hard timeout for a container CLI 'save' when pulling by "
+            "reference, in seconds. Zero (the default) means unlimited "
+            "-- the pull runs to completion no matter how long it takes."
+        ),
     )
 
     # --- Repository URL ingestion -----------------------------------------
@@ -170,9 +279,15 @@ class Settings(BaseSettings):
         description="Shallow-clone depth for repository-URL scans.",
     )
     repo_clone_timeout_seconds: int = Field(
-        default=120,
-        ge=1,
-        description="Hard timeout for a single git clone.",
+        default=0,
+        ge=0,
+        description=(
+            "Hard timeout for a single git clone, in seconds. Zero (the "
+            "default) means unlimited -- the clone runs to completion no "
+            "matter how long it takes. Large repositories on slow "
+            "connections need this: pycryptodome / boringssl / openssl "
+            "regularly take longer than any fixed cap you would pick."
+        ),
     )
     allowed_git_hosts: str = Field(
         default="github.com,gitlab.com,bitbucket.org",
@@ -344,3 +459,17 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached settings accessor, suitable for use as a FastAPI dependency."""
     return Settings()
+
+
+def subprocess_timeout(seconds: int) -> float | None:
+    """Translate a config timeout value to :func:`subprocess.run`'s argument.
+
+    * ``0`` (the new default across every scanner) means *unlimited* --
+      return :data:`None` so ``subprocess.run`` waits indefinitely.
+    * Any positive value is passed straight through as the second cap.
+
+    Keeping this in one function ensures the "0 = unlimited" convention
+    is honoured by every caller and cannot silently drift if we add new
+    scanners later.
+    """
+    return None if seconds <= 0 else float(seconds)

@@ -26,8 +26,14 @@ import logging
 
 from app.models.asset import CryptoUsage
 from app.models.finding import Classification, Finding
-from app.models.recommendation import CostProfile, MigrationStrategy, Recommendation
+from app.models.recommendation import (
+    CostProfile,
+    LatencyProfile,
+    MigrationStrategy,
+    Recommendation,
+)
 from app.models.risk import CurrentRisk, MoscaAssessment, QuantumRisk, RiskTier
+from app.recommend.latency import get_latency_profile
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +65,29 @@ _KEX_PQC_TARGETS: dict[str, dict] = {
         "hybrid_set": "ML-KEM-768 (NIST FIPS 203, Category 3)",
         "references": ["NIST FIPS 203"],
     },
+    # X25519 / X448 — Montgomery-curve ECDH. Same PQ target as NIST-curve ECDH.
+    "X25519": {
+        "pqc": "ML-KEM-768",
+        "pqc_set": "ML-KEM-768 (NIST FIPS 203, Category 3)",
+        "hybrid_prefix": True,
+        "hybrid_set": "ML-KEM-768 (NIST FIPS 203, Category 3)",
+        "references": ["NIST FIPS 203"],
+    },
+    "X448": {
+        "pqc": "ML-KEM-1024",
+        "pqc_set": "ML-KEM-1024 (NIST FIPS 203, Category 5)",
+        "hybrid_prefix": True,
+        "hybrid_set": "ML-KEM-1024 (NIST FIPS 203, Category 5)",
+        "references": ["NIST FIPS 203"],
+    },
+    # Legacy DH — treat as classical KEM candidate for hybrid transitions.
+    "DH": {
+        "pqc": "ML-KEM-1024",
+        "pqc_set": "ML-KEM-1024 (NIST FIPS 203, Category 5)",
+        "hybrid": "ML-KEM-768",
+        "hybrid_set": "ML-KEM-768 (NIST FIPS 203, Category 3)",
+        "references": ["NIST FIPS 203"],
+    },
 }
 
 # Signature algorithms.
@@ -74,6 +103,28 @@ _SIG_PQC_TARGETS: dict[str, dict] = {
         "pqc": "ML-DSA-87",
         "pqc_set": "ML-DSA-87 (NIST FIPS 204, Category 5)",
         "hybrid_set": "ML-DSA-87 (NIST FIPS 204, Category 5)",
+        "references": ["NIST FIPS 204"],
+    },
+    # EdDSA — same NIST category as Ed25519 (128-bit) / Ed448 (192-bit).
+    "Ed25519": {
+        "pqc": "ML-DSA-65",
+        "pqc_set": "ML-DSA-65 (NIST FIPS 204, Category 3)",
+        "hybrid_prefix": True,
+        "hybrid_set": "ML-DSA-65 (NIST FIPS 204, Category 3)",
+        "references": ["NIST FIPS 204"],
+    },
+    "Ed448": {
+        "pqc": "ML-DSA-87",
+        "pqc_set": "ML-DSA-87 (NIST FIPS 204, Category 5)",
+        "hybrid_prefix": True,
+        "hybrid_set": "ML-DSA-87 (NIST FIPS 204, Category 5)",
+        "references": ["NIST FIPS 204"],
+    },
+    # Legacy DSA — signature-only, quantum-vulnerable, deprecated by NIST.
+    "DSA": {
+        "pqc": "ML-DSA-65",
+        "pqc_set": "ML-DSA-65 (NIST FIPS 204, Category 3)",
+        "hybrid_set": "ML-DSA-65 (NIST FIPS 204, Category 3)",
         "references": ["NIST FIPS 204"],
     },
 }
@@ -117,15 +168,23 @@ _SIG_SIZES: dict[str, dict[str, int]] = {
 
 # Approximate classical sizes being replaced (bytes). Coarse, labelled approximate.
 _CLASSICAL_KEY_BYTES: dict[str, int] = {
-    "RSA": 256,   # RSA-2048 modulus; scaled below by key size when known
-    "ECDH": 65,   # uncompressed P-256 point
+    "RSA": 256,      # RSA-2048 modulus; scaled below by key size when known
+    "ECDH": 65,      # uncompressed P-256 point
     "ECC": 65,
     "ECDSA": 65,
     "DH": 256,
+    "X25519": 32,    # 32-byte Curve25519 public key
+    "X448": 56,      # 56-byte Curve448 public key
+    "Ed25519": 32,   # 32-byte Ed25519 public key
+    "Ed448": 57,     # 57-byte Ed448 public key
+    "DSA": 128,      # DSA-1024 y-value, coarse
 }
 _CLASSICAL_SIG_BYTES: dict[str, int] = {
     "RSA": 256,
-    "ECDSA": 72,  # DER-encoded P-256 signature (approx)
+    "ECDSA": 72,     # DER-encoded P-256 signature (approx)
+    "Ed25519": 64,   # 64-byte fixed EdDSA signature
+    "Ed448": 114,    # 114-byte Ed448 signature
+    "DSA": 64,       # DSA-1024 signature, coarse
 }
 
 
@@ -289,6 +348,7 @@ def _recommend_pqc(finding: Finding) -> Recommendation:
     refs = targets.get("references", [])
     is_sig = _is_signature_usage(usage)
     cost = _build_cost_profile(pqc_algo, finding, is_signature=is_sig, hybrid=False)
+    latency = get_latency_profile(pqc_algo)
 
     usage_label = usage.value.replace("_", " ")
     return Recommendation(
@@ -310,6 +370,7 @@ def _recommend_pqc(finding: Finding) -> Recommendation:
             "Plan for larger key/ciphertext sizes in protocol buffers and storage.",
         ],
         cost_profile=cost,
+        latency_profile=latency,
     )
 
 
@@ -338,6 +399,7 @@ def _recommend_hybrid(finding: Finding) -> Recommendation:
     refs = targets.get("references", [])
     is_sig = _is_signature_usage(usage)
     cost = _build_cost_profile(pqc_component, finding, is_signature=is_sig, hybrid=True)
+    latency = get_latency_profile(pqc_component)
 
     usage_label = usage.value.replace("_", " ")
     return Recommendation(
@@ -359,6 +421,7 @@ def _recommend_hybrid(finding: Finding) -> Recommendation:
             "Both components must be validated independently.",
         ],
         cost_profile=cost,
+        latency_profile=latency,
     )
 
 

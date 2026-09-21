@@ -1,0 +1,456 @@
+rules:
+  # =======================================================================
+  # JavaScript / TypeScript cryptographic API detection
+  #
+  # Four surfaces to cover, all common in Node.js + browser code:
+  #   1. `node:crypto` -- the built-in Node crypto module
+  #   2. WebCrypto     -- `crypto.subtle.*` in browsers and modern Node
+  #   3. node-forge    -- pure-JS crypto library used by lots of tooling
+  #   4. crypto-js     -- the other pure-JS crypto library, common in RN
+  #
+  # `elliptic`, `tweetnacl`, `jsrsasign`, and `bcryptjs` are surfaced by
+  # the R4 dependency parser rather than as source patterns -- they are
+  # thin wrappers whose primitive is the package name.
+  #
+  # All rules apply to both JavaScript and TypeScript. Semgrep accepts the
+  # combined `[javascript, typescript]` language list on a single rule.
+  # =======================================================================
+
+  # --- node:crypto -- hashes --------------------------------------------
+  - id: blindspot-js-crypto-md5
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash("MD5")
+      - pattern: crypto.createHash('MD5')
+    message: MD5 hash (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: node-crypto
+
+  - id: blindspot-js-crypto-sha1
+    pattern-either:
+      - pattern: crypto.createHash("sha1")
+      - pattern: crypto.createHash('sha1')
+      - pattern: crypto.createHash("SHA1")
+      - pattern: crypto.createHash('SHA1')
+    message: SHA-1 hash (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: node-crypto
+
+  - id: blindspot-js-crypto-sha256
+    pattern-either:
+      - pattern: crypto.createHash("sha256")
+      - pattern: crypto.createHash('sha256')
+    message: SHA-256 hash (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: SHA-256
+      primitive: hash
+      crypto_function: digest
+      library: node-crypto
+
+  # --- node:crypto -- HMAC (surface the underlying hash) ----------------
+  - id: blindspot-js-crypto-hmac-md5
+    pattern-either:
+      - pattern: crypto.createHmac("md5", ...)
+      - pattern: crypto.createHmac('md5', ...)
+    message: HMAC-MD5 (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: mac
+      crypto_function: tag
+      library: node-crypto
+
+  - id: blindspot-js-crypto-hmac-sha1
+    pattern-either:
+      - pattern: crypto.createHmac("sha1", ...)
+      - pattern: crypto.createHmac('sha1', ...)
+    message: HMAC-SHA1 (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: mac
+      crypto_function: tag
+      library: node-crypto
+
+  # --- node:crypto -- symmetric encryption ------------------------------
+  - id: blindspot-js-crypto-aes-cipher
+    pattern-either:
+      - pattern: crypto.createCipheriv("aes-128-cbc", ...)
+      - pattern: crypto.createCipheriv("aes-192-cbc", ...)
+      - pattern: crypto.createCipheriv("aes-256-cbc", ...)
+      - pattern: crypto.createCipheriv("aes-128-gcm", ...)
+      - pattern: crypto.createCipheriv("aes-192-gcm", ...)
+      - pattern: crypto.createCipheriv("aes-256-gcm", ...)
+      - pattern: crypto.createCipheriv("aes-128-ctr", ...)
+      - pattern: crypto.createCipheriv("aes-192-ctr", ...)
+      - pattern: crypto.createCipheriv("aes-256-ctr", ...)
+      - pattern: crypto.createCipheriv("aes-128-ecb", ...)
+    message: AES block cipher (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-crypto
+
+  - id: blindspot-js-crypto-des-cipher
+    pattern-either:
+      - pattern: crypto.createCipheriv("des", ...)
+      - pattern: crypto.createCipheriv("des-cbc", ...)
+      - pattern: crypto.createCipheriv("des-ecb", ...)
+    message: DES cipher (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-crypto
+
+  - id: blindspot-js-crypto-3des-cipher
+    pattern-either:
+      - pattern: crypto.createCipheriv("des-ede3", ...)
+      - pattern: crypto.createCipheriv("des-ede3-cbc", ...)
+      - pattern: crypto.createCipheriv("des3", ...)
+    message: Triple-DES cipher (node:crypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-crypto
+
+  - id: blindspot-js-crypto-chacha20
+    pattern-either:
+      - pattern: crypto.createCipheriv("chacha20-poly1305", ...)
+      - pattern: crypto.createCipheriv("chacha20", ...)
+    message: ChaCha20 stream cipher (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: ChaCha20
+      primitive: stream-cipher
+      crypto_function: encrypt
+      library: node-crypto
+
+  # --- node:crypto -- asymmetric keygen ---------------------------------
+  - id: blindspot-js-crypto-rsa-keygen
+    pattern-either:
+      - pattern: crypto.generateKeyPair("rsa", ...)
+      - pattern: crypto.generateKeyPairSync("rsa", ...)
+      - pattern: crypto.generateKeyPair('rsa', ...)
+      - pattern: crypto.generateKeyPairSync('rsa', ...)
+    message: RSA key generation (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: node-crypto
+
+  - id: blindspot-js-crypto-ec-keygen
+    pattern-either:
+      - pattern: crypto.generateKeyPair("ec", ...)
+      - pattern: crypto.generateKeyPairSync("ec", ...)
+      - pattern: crypto.generateKeyPair('ec', ...)
+      - pattern: crypto.generateKeyPairSync('ec', ...)
+    message: Elliptic-curve key generation (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: keygen
+      library: node-crypto
+
+  - id: blindspot-js-crypto-ed25519-keygen
+    pattern-either:
+      - pattern: crypto.generateKeyPair("ed25519", ...)
+      - pattern: crypto.generateKeyPairSync("ed25519", ...)
+      - pattern: crypto.generateKeyPair('ed25519', ...)
+      - pattern: crypto.generateKeyPairSync('ed25519', ...)
+    message: Ed25519 key generation (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: keygen
+      library: node-crypto
+
+  - id: blindspot-js-crypto-x25519-keygen
+    pattern-either:
+      - pattern: crypto.generateKeyPair("x25519", ...)
+      - pattern: crypto.generateKeyPairSync("x25519", ...)
+      - pattern: crypto.generateKeyPair('x25519', ...)
+      - pattern: crypto.generateKeyPairSync('x25519', ...)
+    message: X25519 key generation (node:crypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: X25519
+      primitive: key-agree
+      crypto_function: keygen
+      library: node-crypto
+
+  - id: blindspot-js-crypto-dsa-keygen
+    pattern-either:
+      - pattern: crypto.generateKeyPair("dsa", ...)
+      - pattern: crypto.generateKeyPairSync("dsa", ...)
+    message: DSA key generation (node:crypto) - legacy
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: DSA
+      primitive: signature
+      crypto_function: keygen
+      library: node-crypto
+
+  # --- WebCrypto (browser + modern Node) --------------------------------
+  # SubtleCrypto uses object-shaped algorithm identifiers. Match on the
+  # `name` string literal -- it is the concrete algorithm choice.
+  - id: blindspot-js-webcrypto-rsa
+    pattern-either:
+      - pattern: 'crypto.subtle.generateKey({name: "RSASSA-PKCS1-v1_5", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "RSA-PSS", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "RSA-OAEP", ...}, ...)'
+    message: RSA key generation (WebCrypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: webcrypto
+
+  - id: blindspot-js-webcrypto-ecdsa
+    pattern-either:
+      - pattern: 'crypto.subtle.generateKey({name: "ECDSA", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "ECDH", ...}, ...)'
+    message: Elliptic-curve key generation (WebCrypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: keygen
+      library: webcrypto
+
+  - id: blindspot-js-webcrypto-aes
+    pattern-either:
+      - pattern: 'crypto.subtle.generateKey({name: "AES-GCM", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "AES-CBC", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "AES-CTR", ...}, ...)'
+      - pattern: 'crypto.subtle.generateKey({name: "AES-KW", ...}, ...)'
+    message: AES key generation (WebCrypto)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: keygen
+      library: webcrypto
+
+  - id: blindspot-js-webcrypto-digest-md5
+    # Note: WebCrypto explicitly rejects MD5, so this rule catches only
+    # code that fell back to a non-standard shim or a mistaken hash name.
+    pattern-either:
+      - pattern: crypto.subtle.digest("MD5", ...)
+      - pattern: crypto.subtle.digest('MD5', ...)
+    message: MD5 digest requested via WebCrypto - weak (and non-portable)
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: webcrypto
+
+  - id: blindspot-js-webcrypto-digest-sha1
+    pattern-either:
+      - pattern: crypto.subtle.digest("SHA-1", ...)
+      - pattern: crypto.subtle.digest('SHA-1', ...)
+    message: SHA-1 digest (WebCrypto) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: webcrypto
+
+  # --- node-forge -------------------------------------------------------
+  - id: blindspot-js-forge-rsa
+    pattern-either:
+      - pattern: forge.pki.rsa.generateKeyPair(...)
+      - pattern: forge.rsa.generateKeyPair(...)
+    message: RSA key generation (node-forge)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: node-forge
+
+  - id: blindspot-js-forge-md5
+    pattern-either:
+      - pattern: forge.md.md5.create()
+      - pattern: forge.md.md5.create(...)
+    message: MD5 hash (node-forge) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: node-forge
+
+  - id: blindspot-js-forge-sha1
+    pattern-either:
+      - pattern: forge.md.sha1.create()
+      - pattern: forge.md.sha1.create(...)
+    message: SHA-1 hash (node-forge) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: node-forge
+
+  - id: blindspot-js-forge-des
+    pattern-either:
+      - pattern: forge.des.createEncryptionCipher(...)
+      - pattern: forge.cipher.createCipher("DES-CBC", ...)
+      - pattern: forge.cipher.createCipher("DES-ECB", ...)
+    message: DES cipher (node-forge) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-forge
+
+  - id: blindspot-js-forge-3des
+    pattern-either:
+      - pattern: forge.cipher.createCipher("3DES-CBC", ...)
+      - pattern: forge.cipher.createCipher("DES-EDE3-CBC", ...)
+    message: Triple-DES cipher (node-forge) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-forge
+
+  - id: blindspot-js-forge-aes
+    pattern-either:
+      - pattern: forge.cipher.createCipher("AES-CBC", ...)
+      - pattern: forge.cipher.createCipher("AES-CTR", ...)
+      - pattern: forge.cipher.createCipher("AES-GCM", ...)
+      - pattern: forge.cipher.createCipher("AES-ECB", ...)
+    message: AES cipher (node-forge)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: node-forge
+
+  # --- crypto-js --------------------------------------------------------
+  - id: blindspot-js-cryptojs-md5
+    pattern-either:
+      - pattern: CryptoJS.MD5(...)
+    message: MD5 hash (crypto-js) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: crypto-js
+
+  - id: blindspot-js-cryptojs-sha1
+    pattern-either:
+      - pattern: CryptoJS.SHA1(...)
+    message: SHA-1 hash (crypto-js) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: crypto-js
+
+  - id: blindspot-js-cryptojs-sha256
+    pattern-either:
+      - pattern: CryptoJS.SHA256(...)
+    message: SHA-256 hash (crypto-js)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: SHA-256
+      primitive: hash
+      crypto_function: digest
+      library: crypto-js
+
+  - id: blindspot-js-cryptojs-des
+    pattern-either:
+      - pattern: CryptoJS.DES.encrypt(...)
+      - pattern: CryptoJS.DES.decrypt(...)
+    message: DES cipher (crypto-js) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: crypto-js
+
+  - id: blindspot-js-cryptojs-3des
+    pattern-either:
+      - pattern: CryptoJS.TripleDES.encrypt(...)
+      - pattern: CryptoJS.TripleDES.decrypt(...)
+    message: Triple-DES cipher (crypto-js) - weak
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: crypto-js
+
+  - id: blindspot-js-cryptojs-aes
+    pattern-either:
+      - pattern: CryptoJS.AES.encrypt(...)
+      - pattern: CryptoJS.AES.decrypt(...)
+    message: AES cipher (crypto-js)
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: crypto-js

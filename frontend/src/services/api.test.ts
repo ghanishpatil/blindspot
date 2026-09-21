@@ -10,7 +10,15 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, apiBaseUrl, cbomExportUrl, fetchHealth, fetchFindings, startScan } from '@/services/api';
+import {
+  ApiError,
+  apiBaseUrl,
+  cbomExportUrl,
+  fetchHealth,
+  fetchFindings,
+  reportUrl,
+  startScan,
+} from '@/services/api';
 import * as firebase from '@/services/firebase';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -132,5 +140,28 @@ describe('cbomExportUrl', () => {
       'http://127.0.0.1:8000/api/export/cbom?scanId=scan%201',
     );
     expect(cbomExportUrl()).toBe('http://127.0.0.1:8000/api/export/cbom');
+  });
+});
+
+describe('reportUrl', () => {
+  it('defaults to html and appends the format', () => {
+    expect(reportUrl()).toBe('http://127.0.0.1:8000/api/report?format=html');
+  });
+
+  it.each(['html', 'pdf', 'csv'] as const)(
+    'builds an absolute URL for format %s',
+    (format) => {
+      expect(reportUrl('scan-42', format)).toBe(
+        `http://127.0.0.1:8000/api/report?format=${format}&scanId=scan-42`,
+      );
+    },
+  );
+
+  it('URL-encodes hostile scan identifiers', () => {
+    // A scan id containing spaces / query-string metacharacters must not
+    // be able to inject extra parameters into the request.
+    expect(reportUrl('scan 1 & 2', 'csv')).toBe(
+      'http://127.0.0.1:8000/api/report?format=csv&scanId=scan+1+%26+2',
+    );
   });
 });

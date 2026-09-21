@@ -37,6 +37,16 @@ from app.models.finding import (
 
 logger = logging.getLogger(__name__)
 
+
+class _SkipASTAnalysis(Exception):
+    """Sentinel raised to jump out of the AST-analysis block cleanly.
+
+    Used for non-Python source files where :mod:`ast` cannot apply. Kept as a
+    control-flow exception so the existing ``except SyntaxError:`` fallback
+    stays untouched.
+    """
+
+
 # ── Algorithm metadata table ─────────────────────────────────────────────
 # Keyed by the ``metadata.algorithm`` value from the semgrep rule.
 # This is the ONE place where we map algorithm names to domain vocabulary.
@@ -91,6 +101,52 @@ ALGORITHM_DEFAULTS: dict[str, dict[str, Any]] = {
         "primitive": CryptoPrimitive.HASH,
         "artefact_type": ArtefactType.HASH,
         "usage": CryptoUsage.INTEGRITY_HASH,
+    },
+    "SHA-384": {
+        "primitive": CryptoPrimitive.HASH,
+        "artefact_type": ArtefactType.HASH,
+        "usage": CryptoUsage.INTEGRITY_HASH,
+    },
+    "SHA-512": {
+        "primitive": CryptoPrimitive.HASH,
+        "artefact_type": ArtefactType.HASH,
+        "usage": CryptoUsage.INTEGRITY_HASH,
+    },
+    # ── Elliptic-curve algorithms exposed by Java / JS / Go crypto APIs ──
+    # Ed25519 / Ed448 are EdDSA signatures on Edwards curves.
+    # X25519 / X448 are ECDH key agreement on Montgomery curves.
+    # All four are elliptic-curve based and therefore Shor-breakable.
+    "Ed25519": {
+        "primitive": CryptoPrimitive.SIGNATURE,
+        "artefact_type": ArtefactType.SIGNATURE,
+        "usage": CryptoUsage.DIGITAL_SIGNATURE,
+    },
+    "Ed448": {
+        "primitive": CryptoPrimitive.SIGNATURE,
+        "artefact_type": ArtefactType.SIGNATURE,
+        "usage": CryptoUsage.DIGITAL_SIGNATURE,
+    },
+    "X25519": {
+        "primitive": CryptoPrimitive.KEY_AGREE,
+        "artefact_type": ArtefactType.KEY_EXCHANGE,
+        "usage": CryptoUsage.KEY_ESTABLISHMENT,
+    },
+    "X448": {
+        "primitive": CryptoPrimitive.KEY_AGREE,
+        "artefact_type": ArtefactType.KEY_EXCHANGE,
+        "usage": CryptoUsage.KEY_ESTABLISHMENT,
+    },
+    # ── Legacy DSA — Java KeyPairGenerator "DSA" pattern ──
+    "DSA": {
+        "primitive": CryptoPrimitive.SIGNATURE,
+        "artefact_type": ArtefactType.SIGNATURE,
+        "usage": CryptoUsage.DIGITAL_SIGNATURE,
+    },
+    # ── Modern symmetric primitives from Go / Node / WebCrypto ──
+    "ChaCha20": {
+        "primitive": CryptoPrimitive.STREAM_CIPHER,
+        "artefact_type": ArtefactType.ENCRYPTION,
+        "usage": CryptoUsage.DATA_ENCRYPTION,
     },
 }
 
@@ -375,7 +431,21 @@ def extract_from_semgrep_match(
     curve: str | None = None
     mode: CipherMode | None = None
 
+    # Only Python source is amenable to :mod:`ast`. For Java / JS / TS / Go
+    # (added by the R3 rulepacks) the extractor cannot resolve parameters
+    # from a Python syntax tree — but the semgrep AST match itself is still
+    # strong evidence, so we keep the confidence at the high band rather
+    # than penalising every non-Python finding as if it were a text match.
+    # A separate per-language extractor is a later upgrade; the honest
+    # interim is `parameter_status = NOT_APPLICABLE` for non-Python files
+    # (the rule's own metadata carries the algorithm).
+    is_python_source = file_path.suffix.lower() in (".py", ".pyi")
+
     try:
+        if not is_python_source:
+            # Skip parsing entirely; keep the high-confidence default.
+            confidence = 0.88
+            raise _SkipASTAnalysis
         tree = ast.parse(source)
         constants = _module_constants(tree)
         imports = _imported_names(tree)
@@ -422,6 +492,9 @@ def extract_from_semgrep_match(
         if rule_mode:
             mode = _MODE_MAP.get(rule_mode)
 
+    except _SkipASTAnalysis:
+        # Deliberate skip for non-Python source; confidence already set.
+        pass
     except SyntaxError:
         logger.warning("Could not parse %s for AST extraction.", rel_path)
         confidence = 0.7

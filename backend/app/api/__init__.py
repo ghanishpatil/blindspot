@@ -6,7 +6,7 @@ one thing to include.
 
 from fastapi import APIRouter
 
-from app.api import compliance, export, findings, health, roadmap, scan, tls
+from app.api import compliance, export, findings, health, report, roadmap, scan, tls
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
@@ -15,6 +15,7 @@ api_router.include_router(findings.router)
 api_router.include_router(export.router)
 api_router.include_router(roadmap.router)
 api_router.include_router(compliance.router)
+api_router.include_router(report.router)
 api_router.include_router(tls.router)
 
 __all__ = ["api_router"]

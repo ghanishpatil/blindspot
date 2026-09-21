@@ -114,6 +114,15 @@ class ArtefactType(str, Enum):
     CLOUD_SERVICE = "cloud-service"
     """A managed cryptographic cloud service (AWS KMS, GCP KMS, Azure Key Vault, ...)."""
 
+    PROTOCOL = "protocol"
+    """A cryptographic protocol declared in configuration.
+
+    Distinct from :attr:`ENCRYPTION` (the block cipher) or :attr:`KEY_EXCHANGE`
+    (the KEX primitive) so a TLSv1.2 declaration in ``nginx.conf`` reads as
+    "protocol version enabled", not "some cipher/kex thing". Also used for
+    hardening policies (``jdk.tls.disabledAlgorithms`` in ``java.security``).
+    """
+
     UNKNOWN = "unknown"
 
 

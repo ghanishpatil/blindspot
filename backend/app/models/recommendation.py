@@ -34,6 +34,84 @@ class MigrationStrategy(str, Enum):
     """Parameters could not be resolved; a human must confirm before deciding."""
 
 
+class LatencyProfile(BlindspotModel):
+    """Reference-benchmark latency for a PQC/hybrid target.
+
+    The PS asks for recommendations "based on risk profile, latency, cost." We
+    address the *latency* dimension deliberately as a **reference profile**,
+    not a measurement made on this deployment. Every value here comes from a
+    named published source (the CRYSTALS submissions, Cloudflare's PQC
+    experiments, liboqs benchmarks, etc.), and every profile carries a
+    ``platform_note`` that names the hardware / implementation the numbers
+    were measured on.
+
+    Rules that keep this honest:
+
+    1. **Never presented as this system's measured latency.** The UI and API
+       consistently render this as "reference latency (source: ...)".
+    2. **Cycle counts are the primary unit.** Cycles are portable across
+       clock rates; ``approx_microseconds`` is derived by dividing by a
+       stated reference clock rate that ``platform_note`` calls out.
+    3. **Relative bands trump precise numbers.** Real deployments differ
+       widely; a coarse ``low/moderate/high`` band communicates the
+       operational picture without over-promising precision.
+    4. **Signatures split sign vs. verify.** Verification is often 3-5x
+       faster than signing; collapsing the two into one number loses the
+       most important operational signal.
+    """
+
+    target: str = Field(description="PQC target the profile describes, e.g. 'ML-KEM-768'.")
+
+    # KEM operations. All fields optional; the recommender fills only the
+    # ones that make sense for the primitive.
+    keygen_cycles: int | None = Field(default=None, description="Reference key-generation cost, CPU cycles.")
+    encapsulate_cycles: int | None = Field(default=None, description="Reference KEM encapsulation cost, CPU cycles.")
+    decapsulate_cycles: int | None = Field(default=None, description="Reference KEM decapsulation cost, CPU cycles.")
+
+    # Signature operations.
+    sign_cycles: int | None = Field(default=None, description="Reference signing cost, CPU cycles.")
+    verify_cycles: int | None = Field(default=None, description="Reference verification cost, CPU cycles.")
+
+    # Compared to the classical primitive being replaced (best-effort).
+    classical_sign_cycles: int | None = Field(default=None, description="Approx. classical signing cost for comparison.")
+    classical_verify_cycles: int | None = Field(default=None, description="Approx. classical verification cost for comparison.")
+    classical_encapsulate_cycles: int | None = Field(default=None, description="Approx. classical encapsulation cost.")
+    classical_decapsulate_cycles: int | None = Field(default=None, description="Approx. classical decapsulation cost.")
+
+    # TLS handshake overhead where measured (Cloudflare / IETF papers).
+    handshake_extra_bytes: int | None = Field(
+        default=None,
+        description="Approximate additional TLS ClientHello/ServerHello bytes for a hybrid handshake.",
+    )
+    handshake_extra_bytes_source: str | None = Field(default=None)
+
+    relative_latency: str = Field(
+        default="moderate",
+        description="Coarse latency band relative to typical classical baseline: low | moderate | high.",
+    )
+    summary: str = Field(
+        description="Plain-language one-sentence latency picture, e.g. 'ML-KEM-768 keygen/encaps/decaps run in tens of microseconds on modern x86-64 with AVX2.'",
+    )
+    platform_note: str = Field(
+        description=(
+            "The hardware / implementation the reference cycle counts were "
+            "measured on. Explicitly disclaims that this is not a measurement "
+            "on the scanned system."
+        ),
+    )
+    basis: str = Field(
+        default=(
+            "Reference-implementation benchmarks from the algorithm authors' "
+            "published papers - not runtime latency measured on this system."
+        ),
+        description="What these numbers are (and are not).",
+    )
+    sources: list[str] = Field(
+        default_factory=list,
+        description="Cited sources for the cycle counts (papers, submissions, benchmarking projects).",
+    )
+
+
 class CostProfile(BlindspotModel):
     """The operational cost of a PQC/hybrid target, in *published* sizes.
 
@@ -119,5 +197,13 @@ class Recommendation(BlindspotModel):
         description=(
             "Size/cost profile of the PQC target (published FIPS sizes). Present "
             "for PQC and HYBRID recommendations; None where there is no PQC target."
+        ),
+    )
+    latency_profile: LatencyProfile | None = Field(
+        default=None,
+        description=(
+            "Reference latency profile of the PQC target, drawn from cited "
+            "published benchmarks. Always presented as reference-only; never "
+            "as this system's measured latency."
         ),
     )

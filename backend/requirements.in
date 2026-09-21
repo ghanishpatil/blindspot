@@ -32,7 +32,16 @@ semgrep==1.176.1
 cyclonedx-python-lib>=8.5
 jsonschema>=4.23
 
+# --- Cloud KMS attestation (R8) -------------------------------------------
+# boto3 is a heavy dep for a single scanner but the cost is worth it: the
+# attested-KMS finding is a headline PS-closure item, and boto3 is the
+# standard library-tier tool for it.
+boto3>=1.35
+
 # --- Testing ---------------------------------------------------------------
 pytest>=8.3
 pytest-asyncio>=0.25
 httpx>=0.28
+# moto mocks AWS APIs in-process; the [kms] extra pulls just the KMS
+# submodule support we exercise. Test-only, never imported by app code.
+moto[kms]>=5.0

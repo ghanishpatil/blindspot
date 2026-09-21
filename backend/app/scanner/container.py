@@ -34,7 +34,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, subprocess_timeout
 from app.scanner.repository import remove_clone  # robust rmtree (handles Windows RO)
 
 logger = logging.getLogger(__name__)
@@ -228,17 +228,34 @@ def _find_container_cli() -> str | None:
 def _run_cli(
     argv: list[str], settings: Settings, *, action: str
 ) -> subprocess.CompletedProcess[str]:
-    """Run a container-CLI subcommand with the configured timeout."""
+    """Run a container-CLI subcommand.
+
+    The default ``CONTAINER_CLI_TIMEOUT_SECONDS`` is ``0`` -- meaning
+    "wait as long as it takes". Pulling a multi-GB image on a slow link is
+    exactly the case that motivated removing the fixed cap. Set the env
+    var to a positive number when you want an explicit safety net.
+    """
+    timeout = subprocess_timeout(settings.container_cli_timeout_seconds)
     try:
         return subprocess.run(
             argv,
             capture_output=True,
             text=True,
-            timeout=settings.container_cli_timeout_seconds,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         raise ContainerError(
-            f"Image {action} timed out after {settings.container_cli_timeout_seconds}s."
+            f"Image {action} was cancelled after "
+            f"{settings.container_cli_timeout_seconds}s "
+            "(CONTAINER_CLI_TIMEOUT_SECONDS). Set CONTAINER_CLI_TIMEOUT_SECONDS=0 "
+            "to let large images pull to completion."
+        ) from exc
+    except FileNotFoundError as exc:
+        raise ContainerError(
+            f"Container CLI executable not found: {argv[0]!r}. Install "
+            "docker or podman, or use imageArchivePath in development."
         ) from exc
 
 

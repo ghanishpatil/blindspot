@@ -30,10 +30,14 @@ from app.models.risk import RiskTier
 from app.models.scan import Scan, ScanMode, ScanResponse, ScanStatus, ScanSummary
 from app.recommend.recommender import recommend
 from app.risk.mosca import assess, assess_current_risk, assess_quantum_risk
+from app.scanner.aws_kms import scan_aws_kms
 from app.scanner.binary import scan_binaries
+from app.scanner.config_policy import scan_config_policy
 from app.scanner.dependency_parser import parse_dependencies
 from app.scanner.infra import scan_infra
+from app.scanner.pkcs11_scanner import scan_pkcs11
 from app.scanner.semgrep import run_semgrep
+from app.scanner.static_crypto import scan_static_crypto
 
 logger = logging.getLogger(__name__)
 
@@ -190,17 +194,51 @@ def run_pipeline(
         logger.warning("Infra (HSM/KMS) scan failed, continuing without it: %s", exc)
         infra_findings = []
 
+    try:
+        static_crypto_findings = scan_static_crypto(target, settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Static crypto scan failed, continuing without it: %s", exc)
+        static_crypto_findings = []
+
+    try:
+        config_policy_findings = scan_config_policy(target, settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Config policy scan failed, continuing without it: %s", exc)
+        config_policy_findings = []
+
+    # PKCS#11 HSM attestation (R7). Opt-in and infrastructure-scoped: the
+    # target repository is irrelevant here, but running it as a pipeline
+    # stage keeps every attested-key finding on the same code path as
+    # source and dependency findings.
+    try:
+        pkcs11_findings = scan_pkcs11(settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("PKCS#11 scan failed, continuing without it: %s", exc)
+        pkcs11_findings = []
+
+    # AWS KMS attestation (R8). Same discipline as PKCS#11 -- infrastructure
+    # scoped, opt-in via config, gracefully empty when disabled.
+    try:
+        aws_kms_findings = scan_aws_kms(settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AWS KMS scan failed, continuing without it: %s", exc)
+        aws_kms_findings = []
+
     # Filter to source findings for the main pipeline.
     # Dependency findings are informational; they don't go through classify/risk.
     source_findings: list[NormalizedFinding] = [
         f for f in normalized
         if f.evidence.detection_method.value != "dependency_manifest"
     ]
-    # Binary + infra findings flow through the same classify/risk/recommend
-    # analysis — the pipeline's whole point is that new discovery sources plug
-    # in at this boundary, not later.
+    # Binary + infra + static-crypto + config-policy findings flow through
+    # the same classify/risk/recommend analysis — the pipeline's whole point
+    # is that new discovery sources plug in at this boundary, not later.
     source_findings.extend(binary_findings)
     source_findings.extend(infra_findings)
+    source_findings.extend(static_crypto_findings)
+    source_findings.extend(config_policy_findings)
+    source_findings.extend(pkcs11_findings)
+    source_findings.extend(aws_kms_findings)
 
     # Stage 2: CBOM
     cbom_json = build_cbom_json(source_findings, project_name=project_id)

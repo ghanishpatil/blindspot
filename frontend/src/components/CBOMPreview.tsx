@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 
+import { ExportReportButtons } from '@/components/ExportReportButtons';
 import { Icon } from '@/components/Icon';
 import { downloadCbom } from '@/services/api';
 
@@ -71,6 +72,8 @@ export const CBOMPreview: React.FC<CBOMPreviewProps> = ({ cbomData, scanId, clas
             <Icon name="download" size={14} />
             <span>Export CBOM →</span>
           </button>
+
+          <ExportReportButtons scanId={scanId} />
         </div>
       </div>
 

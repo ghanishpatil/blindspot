@@ -1,0 +1,285 @@
+rules:
+  # =======================================================================
+  # Go standard-library cryptographic API detection
+  #
+  # Go's `crypto/*` packages expose one primitive per package, so patterns
+  # match on the package-qualified identifier (`rsa.GenerateKey`,
+  # `ecdsa.SignASN1`, `aes.NewCipher`). Third-party crypto libraries like
+  # `golang.org/x/crypto/ed25519`, `cloudflare/circl`, and
+  # `filippo.io/edwards25519` are surfaced by the R4 dependency parser via
+  # `go.mod` -- this file covers standard-library observation only.
+  # =======================================================================
+
+  # --- crypto/rsa -------------------------------------------------------
+  - id: blindspot-go-rsa-keygen
+    pattern-either:
+      - pattern: rsa.GenerateKey(...)
+      - pattern: rsa.GenerateMultiPrimeKey(...)
+    message: RSA key generation (crypto/rsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: crypto-rsa
+
+  - id: blindspot-go-rsa-encrypt
+    pattern-either:
+      - pattern: rsa.EncryptOAEP(...)
+      - pattern: rsa.EncryptPKCS1v15(...)
+    message: RSA encryption (crypto/rsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: encrypt
+      library: crypto-rsa
+
+  - id: blindspot-go-rsa-sign
+    pattern-either:
+      - pattern: rsa.SignPKCS1v15(...)
+      - pattern: rsa.SignPSS(...)
+    message: RSA signature (crypto/rsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: signature
+      crypto_function: sign
+      library: crypto-rsa
+
+  - id: blindspot-go-rsa-verify
+    pattern-either:
+      - pattern: rsa.VerifyPKCS1v15(...)
+      - pattern: rsa.VerifyPSS(...)
+    message: RSA verification (crypto/rsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: signature
+      crypto_function: verify
+      library: crypto-rsa
+
+  # --- crypto/ecdsa -----------------------------------------------------
+  - id: blindspot-go-ecdsa-keygen
+    pattern-either:
+      - pattern: ecdsa.GenerateKey(...)
+    message: ECDSA key generation (crypto/ecdsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: keygen
+      library: crypto-ecdsa
+
+  - id: blindspot-go-ecdsa-sign
+    pattern-either:
+      - pattern: ecdsa.Sign(...)
+      - pattern: ecdsa.SignASN1(...)
+    message: ECDSA signature (crypto/ecdsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: sign
+      library: crypto-ecdsa
+
+  - id: blindspot-go-ecdsa-verify
+    pattern-either:
+      - pattern: ecdsa.Verify(...)
+      - pattern: ecdsa.VerifyASN1(...)
+    message: ECDSA verification (crypto/ecdsa)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: verify
+      library: crypto-ecdsa
+
+  # --- crypto/ed25519 ---------------------------------------------------
+  - id: blindspot-go-ed25519-keygen
+    pattern-either:
+      - pattern: ed25519.GenerateKey(...)
+      - pattern: ed25519.NewKeyFromSeed(...)
+    message: Ed25519 key generation (crypto/ed25519)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: keygen
+      library: crypto-ed25519
+
+  - id: blindspot-go-ed25519-sign
+    pattern-either:
+      - pattern: ed25519.Sign(...)
+    message: Ed25519 signature (crypto/ed25519)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: sign
+      library: crypto-ed25519
+
+  - id: blindspot-go-ed25519-verify
+    pattern-either:
+      - pattern: ed25519.Verify(...)
+    message: Ed25519 verification (crypto/ed25519)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: verify
+      library: crypto-ed25519
+
+  # --- crypto/ecdh (Go 1.20+) -------------------------------------------
+  - id: blindspot-go-ecdh-p256
+    pattern-either:
+      - pattern: ecdh.P256()
+      - pattern: ecdh.P384()
+      - pattern: ecdh.P521()
+    message: NIST-curve ECDH (crypto/ecdh)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: ECDH
+      primitive: key-agree
+      crypto_function: keyderive
+      library: crypto-ecdh
+
+  - id: blindspot-go-ecdh-x25519
+    pattern-either:
+      - pattern: ecdh.X25519()
+    message: X25519 key agreement (crypto/ecdh)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: X25519
+      primitive: key-agree
+      crypto_function: keyderive
+      library: crypto-ecdh
+
+  # --- crypto/dsa (deprecated but still detectable in legacy code) ------
+  - id: blindspot-go-dsa
+    pattern-either:
+      - pattern: dsa.GenerateParameters(...)
+      - pattern: dsa.GenerateKey(...)
+      - pattern: dsa.Sign(...)
+    message: DSA usage (crypto/dsa) - legacy, deprecated
+    languages: [go]
+    severity: WARNING
+    metadata:
+      algorithm: DSA
+      primitive: signature
+      crypto_function: sign
+      library: crypto-dsa
+
+  # --- crypto/aes -------------------------------------------------------
+  - id: blindspot-go-aes-cipher
+    pattern-either:
+      - pattern: aes.NewCipher(...)
+    message: AES block cipher (crypto/aes)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: keygen
+      library: crypto-aes
+
+  # --- crypto/des -------------------------------------------------------
+  - id: blindspot-go-des-cipher
+    pattern-either:
+      - pattern: des.NewCipher(...)
+    message: DES block cipher (crypto/des) - weak
+    languages: [go]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: keygen
+      library: crypto-des
+
+  - id: blindspot-go-3des-cipher
+    pattern-either:
+      - pattern: des.NewTripleDESCipher(...)
+    message: Triple-DES block cipher (crypto/des) - weak
+    languages: [go]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: keygen
+      library: crypto-des
+
+  # RC4 is a stream cipher with numerous cryptanalytic weaknesses; NIST
+  # and every major standards body has deprecated it. crypto/rc4 keygen
+  # in Go stdlib code is rare enough that we do not add a rule for it
+  # here -- if declared in nginx / apache / openssl.cnf the config-policy
+  # scanner catches it. Keeping the source rulepack silent on RC4 avoids
+  # over-fitting to a primitive that is already forbidden.
+
+  # --- crypto/md5 -------------------------------------------------------
+  - id: blindspot-go-md5
+    pattern-either:
+      - pattern: md5.New()
+      - pattern: md5.Sum(...)
+    message: MD5 hash (crypto/md5) - weak
+    languages: [go]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: crypto-md5
+
+  # --- crypto/sha1 ------------------------------------------------------
+  - id: blindspot-go-sha1
+    pattern-either:
+      - pattern: sha1.New()
+      - pattern: sha1.Sum(...)
+    message: SHA-1 hash (crypto/sha1) - weak
+    languages: [go]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: crypto-sha1
+
+  # --- crypto/sha256 ----------------------------------------------------
+  - id: blindspot-go-sha256
+    pattern-either:
+      - pattern: sha256.New()
+      - pattern: sha256.Sum256(...)
+      - pattern: sha256.Sum224(...)
+    message: SHA-256 hash (crypto/sha256)
+    languages: [go]
+    severity: INFO
+    metadata:
+      algorithm: SHA-256
+      primitive: hash
+      crypto_function: digest
+      library: crypto-sha256
+
+  # --- crypto/hmac --- HMAC surfaces the underlying hash ----------------
+  # HMAC's security is bounded by the hash. `hmac.New(sha1.New, key)`
+  # produces HMAC-SHA1 -- the SHA-1 rule above already fires on the
+  # `sha1.New` argument, so we do NOT add a separate HMAC rule that
+  # would double-count. Same discipline as the Java rules (surface the
+  # hash, not the HMAC wrapper).
+
+  # `tls.Config{...}` is deliberately NOT surfaced as a source finding.
+  # Every Go HTTP server or client instantiates one, so the pattern would
+  # produce enormous noise with no algorithm information. The live TLS
+  # scanner (`app/scanner/tls.py`) observes what the resulting connection
+  # actually negotiates, and the config-policy scanner reads what admins
+  # configure -- those two are the honest evidence sources for TLS.

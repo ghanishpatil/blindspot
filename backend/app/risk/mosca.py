@@ -50,10 +50,21 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Algorithms fully broken by Shor's algorithm.
-_SHOR_BREAKS: set[str] = {"RSA", "ECDH", "ECDSA", "ECC", "DSA", "DH", "ElGamal"}
+#
+# Ed25519 / Ed448 / X25519 / X448 are elliptic-curve based (Curve25519 /
+# Curve448) and Shor breaks the discrete-logarithm problem on which they
+# depend, exactly as it does for the NIST curves. Grouping them with the
+# other Shor-breakable primitives is the honest classification.
+_SHOR_BREAKS: set[str] = {
+    "RSA", "ECDH", "ECDSA", "ECC", "DSA", "DH", "ElGamal",
+    "Ed25519", "Ed448", "X25519", "X448",
+}
 
 # Algorithms weakened by Grover (symmetric/hash: effective security halved).
-_GROVER_WEAKENS: set[str] = {"AES", "3DES", "DES", "MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512"}
+_GROVER_WEAKENS: set[str] = {
+    "AES", "3DES", "DES", "MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512",
+    "ChaCha20",
+}
 
 # Algorithms with known present-day weaknesses.
 _CURRENTLY_WEAK: dict[str, tuple[Severity, str]] = {

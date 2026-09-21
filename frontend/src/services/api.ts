@@ -253,6 +253,98 @@ export function cbomExportUrl(scanId?: string): string {
 }
 
 /**
+ * The three standardised formats the executive report is available in.
+ *
+ * `html` — self-contained interactive document rendered by the backend
+ * `pdf`  — same document rendered via headless Chrome (graceful 503 when unavailable)
+ * `csv`  — RFC 4180 flat inventory of every finding, spreadsheet-friendly
+ *
+ * Backing endpoint: `GET /api/report?format=<fmt>&scanId=<id>`.
+ */
+export type ReportFormat = 'html' | 'pdf' | 'csv';
+
+/** URL of the executive-report endpoint (no auth header — for reference/tests). */
+export function reportUrl(scanId?: string, format: ReportFormat = 'html'): string {
+  const params = new URLSearchParams({ format });
+  if (scanId) params.set('scanId', scanId);
+  return `${apiBaseUrl()}/api/report?${params.toString()}`;
+}
+
+/**
+ * Fetch the executive report and hand it to the browser.
+ *
+ * HTML variants open in a new tab (they are meant to be *read*, not saved),
+ * PDF and CSV variants trigger a blob download so the user gets a file they
+ * can archive. Every call carries the Firebase ID token so the endpoint
+ * enforces owner scoping the same way `/roadmap`, `/compliance`, and the CBOM
+ * export already do.
+ *
+ * PDF-format errors from the backend are surfaced verbatim so the user sees
+ * the honest reason (`503` when Chrome/Edge/Chromium is not on PATH).
+ */
+export async function downloadReport(
+  scanId?: string,
+  format: ReportFormat = 'html',
+): Promise<void> {
+  const params = new URLSearchParams({ format });
+  if (scanId) params.set('scanId', scanId);
+
+  const headers: Record<string, string> = { Accept: '*/*' };
+  try {
+    const token = await firebase.getIdToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // Demo mode without Firebase — proceed unauthenticated.
+  }
+
+  const response = await fetch(`${apiBaseUrl()}/api/report?${params.toString()}`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    // Try to lift the backend's `detail` string so a 503 (no headless
+    // browser) shows up in a toast rather than a bare status code.
+    let detail: string | null = null;
+    try {
+      const body = (await response.clone().json()) as { detail?: string };
+      detail = typeof body.detail === 'string' ? body.detail : null;
+    } catch {
+      /* fall through */
+    }
+    throw new ApiError(
+      detail ?? `Report download failed with status ${response.status}.`,
+      response.status,
+      null,
+    );
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+
+  if (format === 'html') {
+    // Interactive document — open in a new tab so the user can navigate
+    // its inventory / roadmap / compliance / CBOM sections in-place.
+    window.open(url, '_blank', 'noopener,noreferrer');
+    // Give the new tab a moment to hydrate the blob before revoking.
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    return;
+  }
+
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  const filename = scanId
+    ? `blindspot-${format === 'csv' ? 'assets' : 'report'}-${scanId}.${format}`
+    : `blindspot-${format === 'csv' ? 'assets' : 'report'}.${format}`;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Download the CBOM as a file, attaching the Firebase ID token.
  *
  * A plain anchor to {@link cbomExportUrl} cannot send an Authorization header,

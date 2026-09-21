@@ -40,6 +40,7 @@ export type ArtefactType =
   | 'certificate'
   | 'hardware-module'
   | 'cloud-service'
+  | 'protocol'
   | 'unknown';
 
 export type CryptoUsage =
@@ -178,6 +179,34 @@ export interface CostProfile {
   sources: string[];
 }
 
+/**
+ * Cited reference-latency profile for a PQC target.
+ *
+ * Every field either came from a published source (CRYSTALS submissions,
+ * Cloudflare / IETF measurement papers) or is intentionally absent. The UI
+ * MUST render `platformNote` alongside any cycle count and MUST label the
+ * whole block as reference-only, never as this system's measured latency.
+ */
+export interface LatencyProfile {
+  target: string;
+  keygenCycles: number | null;
+  encapsulateCycles: number | null;
+  decapsulateCycles: number | null;
+  signCycles: number | null;
+  verifyCycles: number | null;
+  classicalSignCycles: number | null;
+  classicalVerifyCycles: number | null;
+  classicalEncapsulateCycles: number | null;
+  classicalDecapsulateCycles: number | null;
+  handshakeExtraBytes: number | null;
+  handshakeExtraBytesSource: string | null;
+  relativeLatency: string;
+  summary: string;
+  platformNote: string;
+  basis: string;
+  sources: string[];
+}
+
 export interface Recommendation {
   strategy: MigrationStrategy;
   algorithm: string;
@@ -190,6 +219,7 @@ export interface Recommendation {
   references: string[];
   isQuantumRecommendation: boolean;
   costProfile?: CostProfile | null;
+  latencyProfile?: LatencyProfile | null;
 }
 
 export interface Finding {

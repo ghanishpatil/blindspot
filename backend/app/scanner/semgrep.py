@@ -23,7 +23,7 @@ import sys
 import sysconfig
 from pathlib import Path
 
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, subprocess_timeout
 
 
 class SemgrepNotAvailable(RuntimeError):
@@ -152,11 +152,12 @@ def run_semgrep(target: Path, settings: Settings | None = None) -> list[dict]:
     if not target.exists():
         raise FileNotFoundError(f"Scan target does not exist: {target}")
 
-    # Our rules target Python and C only. Excluding non-source extensions
-    # keeps semgrep from walking (and opening) binaries, archives, IaC, and
-    # generated files — separate scanners own those. On Windows, real-time
-    # antivirus scans of large or ELF-magic files can otherwise stall the
-    # semgrep process indefinitely.
+    # Our rules target Python, C, Java, JavaScript, TypeScript, and Go.
+    # Excluding non-source extensions keeps semgrep from walking (and
+    # opening) binaries, archives, IaC, and generated files — separate
+    # scanners own those. On Windows, real-time antivirus scans of large
+    # or ELF-magic files can otherwise stall the semgrep process
+    # indefinitely.
     _SEMGREP_EXCLUDES = (
         # Compiled / binary artefacts
         "*.so", "*.dll", "*.dylib", "*.exe", "*.sys", "*.pyd",
@@ -189,6 +190,12 @@ def run_semgrep(target: Path, settings: Settings | None = None) -> list[dict]:
 
     logger.info("Running: %s", " ".join(cmd))
 
+    # Zero (the default) means "wait as long as needed". A large polyglot
+    # repository can legitimately keep semgrep busy for many minutes; a
+    # fixed cap would either be too short here (killing real scans) or
+    # too long elsewhere (masking a truly stuck process).
+    timeout = subprocess_timeout(settings.semgrep_timeout_seconds)
+
     try:
         proc = subprocess.run(
             cmd,
@@ -201,11 +208,13 @@ def run_semgrep(target: Path, settings: Settings | None = None) -> list[dict]:
             # undecodable bytes so a single odd byte never fails the scan.
             encoding="utf-8",
             errors="replace",
-            timeout=settings.semgrep_timeout_seconds,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         raise SemgrepScanError(
-            f"Semgrep timed out after {settings.semgrep_timeout_seconds}s."
+            f"Semgrep was cancelled after {settings.semgrep_timeout_seconds}s "
+            "(SEMGREP_TIMEOUT_SECONDS). Set SEMGREP_TIMEOUT_SECONDS=0 to let "
+            "large scans run to completion."
         ) from exc
 
     # Semgrep returns exit code 0 on success (even with findings) and 1 on

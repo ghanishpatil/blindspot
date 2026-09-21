@@ -1,0 +1,372 @@
+rules:
+  # =======================================================================
+  # Java cryptographic API detection -- JCA + JCE + BouncyCastle
+  #
+  # Java's provider architecture drives everything through algorithm strings
+  # ("RSA", "AES/CBC/PKCS5Padding", "SHA256withECDSA"). We match on those
+  # string literals rather than on generic ellipsis-heavy patterns so each
+  # finding lands with the concrete algorithm name in `metadata.algorithm`.
+  # Parameter resolution (key size from `keyGen.initialize(2048)`) is NOT
+  # attempted from Python-only AST logic -- findings are still HIGH
+  # confidence because the semgrep AST match locks the API call precisely.
+  # =======================================================================
+
+  # --- KeyPairGenerator -- asymmetric keygen -----------------------------
+  - id: blindspot-java-rsa-keygen
+    pattern-either:
+      - pattern: KeyPairGenerator.getInstance("RSA")
+      - pattern: KeyPairGenerator.getInstance("RSA", ...)
+    message: RSA key generation (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: keygen
+      library: jca
+
+  - id: blindspot-java-ec-keygen
+    pattern-either:
+      - pattern: KeyPairGenerator.getInstance("EC")
+      - pattern: KeyPairGenerator.getInstance("EC", ...)
+      - pattern: KeyPairGenerator.getInstance("ECDSA")
+      - pattern: KeyPairGenerator.getInstance("ECDSA", ...)
+    message: Elliptic-curve key generation (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: keygen
+      library: jca
+
+  - id: blindspot-java-dsa-keygen
+    pattern-either:
+      - pattern: KeyPairGenerator.getInstance("DSA")
+      - pattern: KeyPairGenerator.getInstance("DSA", ...)
+    message: DSA key generation (Java JCA) - legacy, deprecated
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: DSA
+      primitive: signature
+      crypto_function: keygen
+      library: jca
+
+  - id: blindspot-java-ed25519-keygen
+    pattern-either:
+      - pattern: KeyPairGenerator.getInstance("Ed25519")
+      - pattern: KeyPairGenerator.getInstance("Ed25519", ...)
+      - pattern: KeyPairGenerator.getInstance("EdDSA")
+      - pattern: KeyPairGenerator.getInstance("EdDSA", ...)
+    message: Ed25519/EdDSA key generation (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: keygen
+      library: jca
+
+  - id: blindspot-java-dh-keygen
+    pattern-either:
+      - pattern: KeyPairGenerator.getInstance("DH")
+      - pattern: KeyPairGenerator.getInstance("DH", ...)
+      - pattern: KeyPairGenerator.getInstance("DiffieHellman")
+      - pattern: KeyPairGenerator.getInstance("DiffieHellman", ...)
+    message: Diffie-Hellman key generation (Java JCA) - legacy
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: DH
+      primitive: key-agree
+      crypto_function: keygen
+      library: jca
+
+  # --- Signature -- sign / verify ----------------------------------------
+  # Java signature strings encode both hash and signature algorithm, e.g.
+  # "SHA256withRSA" or "SHA1withECDSA". The signature algorithm is what
+  # drives quantum risk (Shor); the hash string is captured through the
+  # hash rules separately when weak.
+  - id: blindspot-java-rsa-sign
+    pattern-either:
+      - pattern: Signature.getInstance("SHA256withRSA")
+      - pattern: Signature.getInstance("SHA256withRSA", ...)
+      - pattern: Signature.getInstance("SHA384withRSA")
+      - pattern: Signature.getInstance("SHA384withRSA", ...)
+      - pattern: Signature.getInstance("SHA512withRSA")
+      - pattern: Signature.getInstance("SHA512withRSA", ...)
+      - pattern: Signature.getInstance("RSASSA-PSS")
+      - pattern: Signature.getInstance("RSASSA-PSS", ...)
+    message: RSA signature (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: signature
+      crypto_function: sign
+      library: jca
+
+  - id: blindspot-java-rsa-sign-weakhash
+    pattern-either:
+      - pattern: Signature.getInstance("MD5withRSA")
+      - pattern: Signature.getInstance("MD5withRSA", ...)
+      - pattern: Signature.getInstance("SHA1withRSA")
+      - pattern: Signature.getInstance("SHA1withRSA", ...)
+    message: RSA signature with weak hash (Java JCA)
+    languages: [java]
+    severity: WARNING
+    metadata:
+      # Surface the *hash* weakness -- that is the present-day defect. The
+      # RSA quantum-risk view is already covered by the plain RSA rules.
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: jca
+
+  - id: blindspot-java-ecdsa-sign
+    pattern-either:
+      - pattern: Signature.getInstance("SHA256withECDSA")
+      - pattern: Signature.getInstance("SHA256withECDSA", ...)
+      - pattern: Signature.getInstance("SHA384withECDSA")
+      - pattern: Signature.getInstance("SHA384withECDSA", ...)
+      - pattern: Signature.getInstance("SHA512withECDSA")
+      - pattern: Signature.getInstance("SHA512withECDSA", ...)
+    message: ECDSA signature (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: ECDSA
+      primitive: signature
+      crypto_function: sign
+      library: jca
+
+  - id: blindspot-java-ed25519-sign
+    pattern-either:
+      - pattern: Signature.getInstance("Ed25519")
+      - pattern: Signature.getInstance("Ed25519", ...)
+      - pattern: Signature.getInstance("EdDSA")
+      - pattern: Signature.getInstance("EdDSA", ...)
+    message: Ed25519/EdDSA signature (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: Ed25519
+      primitive: signature
+      crypto_function: sign
+      library: jca
+
+  - id: blindspot-java-dsa-sign
+    pattern-either:
+      - pattern: Signature.getInstance("SHA256withDSA")
+      - pattern: Signature.getInstance("SHA256withDSA", ...)
+      - pattern: Signature.getInstance("SHA1withDSA")
+      - pattern: Signature.getInstance("SHA1withDSA", ...)
+    message: DSA signature (Java JCA) - legacy
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: DSA
+      primitive: signature
+      crypto_function: sign
+      library: jca
+
+  # --- Cipher -- symmetric encryption ------------------------------------
+  # Java Cipher.getInstance strings are "ALG/MODE/PADDING". Split by prefix
+  # so the algorithm field matches downstream vocabulary. Mode is captured
+  # loosely -- modes.yaml conventions do not apply here since the mode is
+  # embedded in the algorithm string itself.
+  - id: blindspot-java-aes-cipher
+    pattern-either:
+      - pattern: Cipher.getInstance("AES")
+      - pattern: Cipher.getInstance("AES", ...)
+      - pattern: Cipher.getInstance("AES/CBC/PKCS5Padding")
+      - pattern: Cipher.getInstance("AES/CBC/PKCS5Padding", ...)
+      - pattern: Cipher.getInstance("AES/GCM/NoPadding")
+      - pattern: Cipher.getInstance("AES/GCM/NoPadding", ...)
+      - pattern: Cipher.getInstance("AES/CTR/NoPadding")
+      - pattern: Cipher.getInstance("AES/CTR/NoPadding", ...)
+      - pattern: Cipher.getInstance("AES/ECB/PKCS5Padding")
+      - pattern: Cipher.getInstance("AES/ECB/PKCS5Padding", ...)
+    message: AES block cipher (Java JCE)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: AES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: jce
+
+  - id: blindspot-java-des-cipher
+    pattern-either:
+      - pattern: Cipher.getInstance("DES")
+      - pattern: Cipher.getInstance("DES", ...)
+      - pattern: Cipher.getInstance("DES/CBC/PKCS5Padding")
+      - pattern: Cipher.getInstance("DES/CBC/PKCS5Padding", ...)
+      - pattern: Cipher.getInstance("DES/ECB/PKCS5Padding")
+      - pattern: Cipher.getInstance("DES/ECB/PKCS5Padding", ...)
+    message: DES block cipher (Java JCE) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: jce
+
+  - id: blindspot-java-3des-cipher
+    pattern-either:
+      - pattern: Cipher.getInstance("DESede")
+      - pattern: Cipher.getInstance("DESede", ...)
+      - pattern: Cipher.getInstance("DESede/CBC/PKCS5Padding")
+      - pattern: Cipher.getInstance("DESede/CBC/PKCS5Padding", ...)
+      - pattern: Cipher.getInstance("TripleDES")
+      - pattern: Cipher.getInstance("TripleDES", ...)
+    message: Triple-DES block cipher (Java JCE) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: 3DES
+      primitive: block-cipher
+      crypto_function: encrypt
+      library: jce
+
+  - id: blindspot-java-rsa-cipher
+    pattern-either:
+      - pattern: Cipher.getInstance("RSA")
+      - pattern: Cipher.getInstance("RSA", ...)
+      - pattern: Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
+      - pattern: Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding", ...)
+      - pattern: Cipher.getInstance("RSA/ECB/PKCS1Padding")
+      - pattern: Cipher.getInstance("RSA/ECB/PKCS1Padding", ...)
+    message: RSA asymmetric cipher (Java JCE)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: RSA
+      primitive: pke
+      crypto_function: encrypt
+      library: jce
+
+  # --- MessageDigest -- hashes -------------------------------------------
+  - id: blindspot-java-md5
+    pattern-either:
+      - pattern: MessageDigest.getInstance("MD5")
+      - pattern: MessageDigest.getInstance("MD5", ...)
+    message: MD5 hash (Java JCA) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: hash
+      crypto_function: digest
+      library: jca
+
+  - id: blindspot-java-sha1
+    pattern-either:
+      - pattern: MessageDigest.getInstance("SHA-1")
+      - pattern: MessageDigest.getInstance("SHA-1", ...)
+      - pattern: MessageDigest.getInstance("SHA1")
+      - pattern: MessageDigest.getInstance("SHA1", ...)
+    message: SHA-1 hash (Java JCA) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: hash
+      crypto_function: digest
+      library: jca
+
+  - id: blindspot-java-sha256
+    pattern-either:
+      - pattern: MessageDigest.getInstance("SHA-256")
+      - pattern: MessageDigest.getInstance("SHA-256", ...)
+    message: SHA-256 hash (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: SHA-256
+      primitive: hash
+      crypto_function: digest
+      library: jca
+
+  # --- Mac -- HMAC / message authentication ------------------------------
+  # HMAC is only as strong as the underlying hash. Surface the *hash* so
+  # weak-HMAC-MD5 / weak-HMAC-SHA1 route through the existing weakness
+  # logic and produce a REMEDIATE_NOW recommendation.
+  - id: blindspot-java-hmac-md5
+    pattern-either:
+      - pattern: Mac.getInstance("HmacMD5")
+      - pattern: Mac.getInstance("HmacMD5", ...)
+    message: HMAC-MD5 (Java JCA) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: MD5
+      primitive: mac
+      crypto_function: tag
+      library: jca
+
+  - id: blindspot-java-hmac-sha1
+    pattern-either:
+      - pattern: Mac.getInstance("HmacSHA1")
+      - pattern: Mac.getInstance("HmacSHA1", ...)
+    message: HMAC-SHA1 (Java JCA) - weak
+    languages: [java]
+    severity: WARNING
+    metadata:
+      algorithm: SHA-1
+      primitive: mac
+      crypto_function: tag
+      library: jca
+
+  # --- KeyAgreement -- DH / ECDH -----------------------------------------
+  - id: blindspot-java-ecdh
+    pattern-either:
+      - pattern: KeyAgreement.getInstance("ECDH")
+      - pattern: KeyAgreement.getInstance("ECDH", ...)
+    message: ECDH key agreement (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: ECDH
+      primitive: key-agree
+      crypto_function: keyderive
+      library: jca
+
+  - id: blindspot-java-x25519
+    pattern-either:
+      - pattern: KeyAgreement.getInstance("X25519")
+      - pattern: KeyAgreement.getInstance("X25519", ...)
+      - pattern: KeyAgreement.getInstance("XDH")
+      - pattern: KeyAgreement.getInstance("XDH", ...)
+    message: X25519 / XDH key agreement (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: X25519
+      primitive: key-agree
+      crypto_function: keyderive
+      library: jca
+
+  - id: blindspot-java-dh-agree
+    pattern-either:
+      - pattern: KeyAgreement.getInstance("DH")
+      - pattern: KeyAgreement.getInstance("DH", ...)
+      - pattern: KeyAgreement.getInstance("DiffieHellman")
+      - pattern: KeyAgreement.getInstance("DiffieHellman", ...)
+    message: Diffie-Hellman key agreement (Java JCA)
+    languages: [java]
+    severity: INFO
+    metadata:
+      algorithm: DH
+      primitive: key-agree
+      crypto_function: keyderive
+      library: jca
+
+  # BouncyCastle provider registration (`Security.addProvider(new
+  # BouncyCastleProvider())`) is deliberately NOT surfaced as a source
+  # finding here. Provider registration is capability, not observation --
+  # the dependency parser (R4, `bcprov-jdk18on`) already reports the
+  # capability once per project. Emitting a second finding with
+  # algorithm=UNKNOWN would inflate counts without new information.

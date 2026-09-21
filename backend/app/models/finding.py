@@ -71,6 +71,64 @@ class DetectionMethod(str, Enum):
     unresolved parameter so they route to INVESTIGATE.
     """
 
+    STATIC_CERT_FILE = "static_cert_file"
+    """A certificate parsed from a standalone file or inline PEM block.
+
+    The file itself is the evidence — the algorithm, key size, and curve are
+    read directly from the DER/PEM bytes with :mod:`cryptography.x509`. High
+    confidence: no heuristic sits between the artefact and the finding.
+    """
+
+    STATIC_KEY_MATERIAL = "static_key_material"
+    """Private- or public-key material parsed from a file or inline PEM block.
+
+    Same evidence discipline as :attr:`STATIC_CERT_FILE`: the algorithm and
+    parameter are read directly from the encoded key structure.
+    """
+
+    STATIC_KEYSTORE = "static_keystore"
+    """A password-protected keystore file (PKCS#12 / .p12 / .pfx, or JKS).
+
+    File existence proves the key-management surface is there, but the
+    parameters inside are opaque without the password. Emitted with
+    :attr:`ParameterStatus.UNRESOLVED` so it routes to INVESTIGATE, honestly
+    reflecting what static observation can and cannot show.
+    """
+
+    PKCS11_ATTESTED = "pkcs11_attested"
+    """A live PKCS#11 session attested this key exists on this HSM.
+
+    Emitted by the R7 HSM scanner after opening a PKCS#11 module, reading
+    ``CKA_KEY_TYPE`` / ``CKA_MODULUS_BITS`` / ``CKA_EC_PARAMS`` from real
+    objects on the token. This is the strongest form of key evidence the
+    tool produces short of a full cryptographic proof of possession: the
+    HSM answered.
+    """
+
+    AWS_KMS_ATTESTED = "aws_kms_attested"
+    """A live AWS KMS ``DescribeKey`` call attested this key's algorithm.
+
+    Emitted by the R8 cloud-KMS scanner. AWS returns the key spec directly
+    (``RSA_2048``, ``ECC_NIST_P256``, ``SYMMETRIC_DEFAULT``, ...), so no
+    heuristic sits between the API response and the finding.
+    """
+
+    CONFIG_POLICY_DECLARED = "config_policy_declared"
+    """A protocol / cipher / KEX / MAC / hostkey declared in a config file.
+
+    Sources include ``nginx.conf`` (``ssl_protocols``, ``ssl_ciphers``),
+    ``sshd_config`` (``Ciphers`` / ``KexAlgorithms`` / ``MACs`` /
+    ``HostKeyAlgorithms``), ``httpd.conf`` (``SSLProtocol`` /
+    ``SSLCipherSuite``), ``openssl.cnf`` (``MinProtocol`` / ``CipherString``),
+    ``java.security`` (``jdk.tls.disabledAlgorithms``),
+    ``postgresql.conf`` (``ssl_ciphers``), and .NET ``web.config``.
+
+    Confidence sits at the medium band because a declaration is what the
+    admin *asked for* — the running server may still override, ignore, or
+    layer on top of it. Live probing (``TLS_PROBE``) is what proves what a
+    server actually negotiates.
+    """
+
     UNKNOWN = "unknown"
 
 
