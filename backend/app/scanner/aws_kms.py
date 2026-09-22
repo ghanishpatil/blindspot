@@ -165,12 +165,25 @@ _KEY_SPECS: dict[str, dict[str, Any]] = {
 # DescribeKey response -> NormalizedFinding
 # ---------------------------------------------------------------------------
 
-def _resolve_key(metadata: dict, region: str) -> NormalizedFinding | None:
+def _resolve_key(
+    metadata: dict,
+    region: str,
+    *,
+    rotation_enabled: bool | None = None,
+) -> NormalizedFinding | None:
     """Convert a ``KeyMetadata`` dict into a :class:`NormalizedFinding`.
 
     Returns ``None`` when the key is missing the fields we need. That is
     honest: some AWS pending-deletion / cross-account keys return a
     truncated ``KeyMetadata`` and we would rather skip them than fabricate.
+
+    ``rotation_enabled`` is the ``KeyRotationEnabled`` boolean from
+    ``GetKeyRotationStatus``, or ``None`` when the key does not support
+    rotation (asymmetric, HMAC, AWS-managed, external-origin) or the API
+    call was refused. It is surfaced in the evidence snippet so a reviewer
+    can see the state alongside the algorithm and key size -- exactly
+    what PS Req 2 AC 4 asks for ("record the key algorithm, key size, and
+    rotation configuration").
     """
     key_id = metadata.get("KeyId")
     if not key_id:
@@ -215,10 +228,23 @@ def _resolve_key(metadata: dict, region: str) -> NormalizedFinding | None:
     elif key_usage == "GENERATE_VERIFY_MAC":
         usage = CryptoUsage.MESSAGE_AUTHENTICATION
 
+    # Translate the tri-state rotation flag into a stable string so a
+    # human reading the evidence line can see the state at a glance:
+    #   True  -> "enabled"   (automatic rotation is on)
+    #   False -> "disabled"  (rotation is available but off)
+    #   None  -> "n/a"       (asymmetric / HMAC / AWS-managed / external
+    #                        origin -- rotation is not supported)
+    if rotation_enabled is True:
+        rotation_str = "enabled"
+    elif rotation_enabled is False:
+        rotation_str = "disabled"
+    else:
+        rotation_str = "n/a"
+
     snippet = (
         f"aws-kms key_id={key_id} spec={key_spec or 'unknown'} "
         f"usage={key_usage or 'unknown'} manager={key_manager} "
-        f"state={key_state} origin={origin}"
+        f"state={key_state} origin={origin} rotation={rotation_str}"
     )
 
     evidence = Evidence(
@@ -320,7 +346,19 @@ def scan_aws_kms(
             logger.warning("DescribeKey failed for %s: %s", key_id, exc)
             continue
         metadata = desc.get("KeyMetadata") or {}
-        resolved = _resolve_key(metadata, region=region or "unknown")
+
+        # Only fetch rotation status when the key type actually supports
+        # rotation. AWS KMS rotates ONLY customer-managed, AWS-origin,
+        # symmetric-default keys. Asking about anything else either returns
+        # UnsupportedOperationException (asymmetric / HMAC) or wastes an
+        # API call (AWS-managed / external-origin never rotate).
+        rotation_enabled = _read_rotation_status(client, metadata)
+
+        resolved = _resolve_key(
+            metadata,
+            region=region or "unknown",
+            rotation_enabled=rotation_enabled,
+        )
         if resolved is not None:
             findings.append(resolved)
 
@@ -330,6 +368,55 @@ def scan_aws_kms(
         region or "<default>",
     )
     return findings
+
+
+def _rotation_supported(metadata: dict) -> bool:
+    """Return True when the KMS key metadata describes a key that AWS
+    can rotate. Every other case is honest 'n/a'.
+
+    AWS KMS rotates only symmetric-default, customer-managed, AWS-origin
+    keys:
+
+    * asymmetric keys (RSA, ECC, SM2) -- no rotation, GetKeyRotationStatus
+      raises ``UnsupportedOperationException``.
+    * HMAC keys -- material is fixed, no rotation.
+    * AWS-managed keys (``KeyManager == 'AWS'``) -- rotated on a schedule
+      the customer does not control, and the API returns rotation info
+      that is not meaningful for our inventory.
+    * External-origin keys (``Origin == 'EXTERNAL'``) -- customer owns
+      the key material; AWS cannot rotate it.
+    """
+    if (metadata.get("KeySpec") or metadata.get("CustomerMasterKeySpec")) != "SYMMETRIC_DEFAULT":
+        return False
+    if (metadata.get("KeyManager") or "CUSTOMER") != "CUSTOMER":
+        return False
+    if (metadata.get("Origin") or "AWS_KMS") != "AWS_KMS":
+        return False
+    return True
+
+
+def _read_rotation_status(client, metadata: dict) -> bool | None:
+    """Return the rotation flag for a key, or ``None`` when it does not
+    apply or the API refused.
+
+    Never raises. A failed ``GetKeyRotationStatus`` is logged at warning
+    level and folded into ``None`` -- an honest 'we could not determine
+    this' rather than a fabricated ``False``.
+    """
+    if not _rotation_supported(metadata):
+        return None
+    key_id = metadata.get("KeyId")
+    if not key_id:
+        return None
+    try:
+        response = client.get_key_rotation_status(KeyId=key_id)
+    except (ClientError, BotoCoreError) as exc:
+        logger.warning("GetKeyRotationStatus failed for %s: %s", key_id, exc)
+        return None
+    value = response.get("KeyRotationEnabled")
+    if isinstance(value, bool):
+        return value
+    return None
 
 
 def _iter_key_ids(client, *, max_keys: int):

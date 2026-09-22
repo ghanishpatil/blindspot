@@ -1,0 +1,84 @@
+# Blindspot dogfoods its own guardrail against every PR to main.
+#
+# This workflow validates two things at once:
+#   1. The action packaging is buildable and runnable in GitHub's CI.
+#   2. The scan pipeline stays honest about the repo it lives in --
+#      any regression in our own crypto usage shows up here first.
+#
+# Runs on:
+#   * pull requests targeting main
+#   * manual dispatch (for backfilling on an existing branch)
+#
+# The action's exit code drives job success/failure directly, so a
+# regression in this repo causes a red CI signal without any extra
+# glue.
+
+name: PQC guardrail (self)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "action/**"
+      - "Dockerfile"
+      - ".github/workflows/self-guardrail.yml"
+  workflow_dispatch:
+    inputs:
+      baseline-branch:
+        description: "Branch to diff against."
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+jobs:
+  guardrail:
+    name: Block quantum-vulnerable regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          # The action needs to reach the baseline branch's tree.
+          # fetch-depth: 0 is the simplest correct setting; a shallow
+          # depth may work on short-lived branches but breaks when
+          # a PR lags behind main.
+          fetch-depth: 0
+
+      - name: Run Blindspot guardrail
+        id: blindspot
+        uses: ./action
+        with:
+          path: "backend/app"
+          baseline-branch: ${{ github.event.inputs.baseline-branch || 'main' }}
+          # Warns stay informational; a genuine block-severity hit is
+          # already an error thanks to the CLI's exit code.
+          fail-on-warn: "false"
+
+      - name: Summarise
+        if: always()
+        run: |
+          echo "### Blindspot guardrail summary" >>"$GITHUB_STEP_SUMMARY"
+          echo "" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Metric | Count |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Introduced | ${{ steps.blindspot.outputs.introduced-count }} |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Resolved | ${{ steps.blindspot.outputs.resolved-count }} |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Changed | ${{ steps.blindspot.outputs.changed-count }} |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Block violations | ${{ steps.blindspot.outputs.violations-count }} |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Warn violations | ${{ steps.blindspot.outputs.warn-violations-count }} |" >>"$GITHUB_STEP_SUMMARY"
+          echo "| Exit code | ${{ steps.blindspot.outputs.exit-code }} |" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload delta report
+        if: always() && steps.blindspot.outputs.delta-json != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: blindspot-delta-${{ github.run_id }}
+          path: ${{ steps.blindspot.outputs.delta-json }}
+          if-no-files-found: warn
+          retention-days: 14

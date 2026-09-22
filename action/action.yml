@@ -1,0 +1,54 @@
+name: "Blindspot CBOM Guardrail"
+description: >
+  Blocks pull requests that introduce new quantum-vulnerable or
+  currently-weak cryptography. Runs the Blindspot ECDAT pipeline
+  against your baseline branch, diffs the result against the PR head,
+  and evaluates the delta against a policy (built-in or repo-supplied).
+author: "Blindspot ECDAT"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Directory to scan (relative to the repository root)."
+    required: false
+    default: "."
+  baseline-branch:
+    description: "Branch to diff against. Typically your default branch."
+    required: false
+    default: "main"
+  policy:
+    description: >
+      Path to a policy JSON file, relative to the repository root.
+      When omitted, the built-in default policy is used (blocks new
+      currently-weak crypto, new overdue findings, and any regression
+      that pushes a matched finding into 'overdue').
+    required: false
+    default: ""
+  fail-on-warn:
+    description: >
+      When "true", escalate warn-severity violations to block. Off by
+      default -- warns stay informational.
+    required: false
+    default: "false"
+
+outputs:
+  introduced-count:
+    description: "Number of newly introduced findings vs baseline."
+  resolved-count:
+    description: "Number of findings resolved vs baseline."
+  changed-count:
+    description: "Number of matched findings whose tracked fields changed."
+  violations-count:
+    description: "Number of block-severity policy violations. Non-zero means the PR is blocked."
+  warn-violations-count:
+    description: "Number of warn-severity policy violations. Informational unless fail-on-warn=true."
+  exit-code:
+    description: "Raw exit code from blindspot-scan (0/1/2/3). Useful for advanced conditional logic."
+  delta-json:
+    description: "Absolute path to the full delta+policy JSON envelope inside the runner."
+
+runs:
+  using: "docker"
+  image: "../Dockerfile"

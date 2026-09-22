@@ -1,12 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { AgilityScoreCard } from '@/components/AgilityScoreCard';
+import { BackendScanHistory } from '@/components/BackendScanHistory';
+import { BenchmarkPanel } from '@/components/BenchmarkPanel';
+import { CbomInteropDiff } from '@/components/CbomInteropDiff';
+import { DependencyGraph } from '@/components/DependencyGraph';
+import { DiffPanel } from '@/components/DiffPanel';
+import { PolicyEditor } from '@/components/PolicyEditor';
+import { WavePlanCard } from '@/components/WavePlanCard';
 import { FindingTable } from '@/components/FindingTable';
 import { Icon } from '@/components/Icon';
+import { TrendChart } from '@/components/TrendChart';
 import { RiskChip, SectionEyebrow, Stat } from '@/design';
 import { fetchFindings, fetchHealth, startScan } from '@/services/api';
 import { DEMO_HEALTH_RESPONSE, DEMO_PLANTED_FINDINGS } from '@/services/mockData';
 import type { Finding, HealthResponse, RiskTier } from '@/types';
+
+const PROJECT_ID = 'demo';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Dashboard — the operational center.
@@ -91,6 +102,51 @@ export default function Dashboard() {
         <CryptoSurface findings={findings} onDrilldown={(algo) => navigate(`/findings?algorithm=${encodeURIComponent(algo)}`)} />
         <NextActions findings={findings} onOpen={(id) => navigate(`/findings/${id}`)} />
       </div>
+
+      {/* Two panels backed by the on-disk artefact mirror. Both work in
+          air-gap mode. The trend chart plots per-Risk_Tier counts across
+          scans (PS Req 13); the history table lists every scan the
+          backend has persisted. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <TrendChart projectId={PROJECT_ID} />
+        <BackendScanHistory projectId={PROJECT_ID} />
+      </div>
+
+      {/* Crypto-agility score for the latest scan. Anchored above the
+          diff so the operator sees a single quotable number before the
+          detailed breakdowns. */}
+      <AgilityScoreCard projectId={PROJECT_ID} />
+
+      {/* Blast-radius graph. Bipartite view of files -> algorithms,
+          nodes coloured by worst tier. Sits after the score so the
+          "map" reinforces the number. */}
+      <DependencyGraph projectId={PROJECT_ID} />
+
+      {/* Cross-scan diff -- compare any two scans on disk. Anchored below
+          trend + history because it depends on both being populated. */}
+      <DiffPanel projectId={PROJECT_ID} />
+
+      {/* Policy-as-code editor. Same policy engine as `blindspot-scan gate`;
+          edit, simulate against a scan pair, save. Sits after the diff
+          panel because "diff first, then policy" mirrors how a user
+          reasons about what to block. */}
+      <PolicyEditor projectId={PROJECT_ID} />
+
+      {/* Benchmark harness. Precision / recall / F1 against a bundled
+          labelled corpus. Judges want to see the tool's own error rate;
+          this panel is where that number lives. */}
+      <BenchmarkPanel />
+
+      {/* CBOM interoperability diff. Drop-in JSON compare between a
+          Blindspot CBOM and any third-party tool's CBOM (IBM CBOMkit,
+          sonatype, ...). Proof that our CycloneDX 1.6 output is
+          interoperable. */}
+      <CbomInteropDiff />
+
+      {/* Compact wave-plan card. Full roadmap lives on /roadmap and
+          section 4 of the executive PDF; this is the at-a-glance
+          dashboard variant. */}
+      <WavePlanCard />
 
       <FindingsSection findings={findings} onSeeAll={() => navigate('/findings')} />
 

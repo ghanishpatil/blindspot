@@ -21,6 +21,7 @@ from app.firebase.client import reset_firebase
 from app.firebase.firestore import reset_firestore
 from app.firebase.storage import reset_storage
 from app.main import create_app
+from app.policy.store import _reset_default_store_for_tests
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +41,15 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[No
     monkeypatch.setenv("QUANTUM_HORIZON_YEARS", "10")
     monkeypatch.setenv("MIGRATION_TIME_YEARS", "3")
 
+    # Pin the PQC target policy off so tests exercise the natural
+    # category derivation rather than whatever the developer flipped
+    # on in their local .env. Individual tests may re-enable it.
+    monkeypatch.setenv("HIGH_ASSURANCE_MODE", "false")
+
+    # Same for storage backend -- default "auto" is what the tests expect
+    # unless they explicitly override it. See test_storage_backend.py.
+    monkeypatch.setenv("STORAGE_BACKEND", "auto")
+
     monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     monkeypatch.setenv("FALLBACK_CACHE_PATH", str(tmp_path / "cache" / "last_scan.json"))
     monkeypatch.setenv("DEMO_REPO_PATH", str(tmp_path / "demo-repo"))
@@ -49,6 +59,11 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[No
     reset_firebase()
     reset_firestore()
     reset_storage()
+    # Every test gets a fresh policy store rooted at *this* test's
+    # ARTIFACTS_DIR. Without this reset the singleton would leak the
+    # first test's tmp path into every subsequent test on the same
+    # worker.
+    _reset_default_store_for_tests()
 
     yield
 
@@ -56,6 +71,7 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[No
     reset_firebase()
     reset_firestore()
     reset_storage()
+    _reset_default_store_for_tests()
 
 
 @pytest.fixture

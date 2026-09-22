@@ -92,6 +92,11 @@ backend/.imgscan.*
 backend/app/data/cache/*.json
 !backend/app/data/cache/.gitkeep
 
+# --- Scratch / one-off local artefacts (never commit) ----------------------
+.scratch/
+/blindspot-report*.pdf
+/localhost-tls.png
+
 # --- Logs ------------------------------------------------------------------
 *.log
 logs/

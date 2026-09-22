@@ -235,6 +235,65 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- Live Azure Key Vault attestation ---------------------------------
+    azure_kv_scan_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable live Azure Key Vault attestation. Requires "
+            "azure-keyvault-keys + azure-identity to be installed and "
+            "credentials resolvable via DefaultAzureCredential (env, "
+            "managed identity, or az CLI)."
+        ),
+    )
+    azure_kv_vault_url: str = Field(
+        default="",
+        description=(
+            "Vault URL to enumerate, e.g. https://<name>.vault.azure.net. "
+            "Empty disables the scanner even when azure_kv_scan_enabled is "
+            "true, since a vault name is required to open a client."
+        ),
+    )
+    azure_kv_max_keys: int = Field(
+        default=100,
+        ge=1,
+        description=(
+            "Cap on how many keys the scanner will read. Prevents "
+            "unbounded scans on very large vaults."
+        ),
+    )
+
+    # --- Live GCP KMS attestation -----------------------------------------
+    gcp_kms_scan_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable live GCP KMS attestation. Requires google-cloud-kms "
+            "and Google application-default credentials (env, service "
+            "account, workload identity, or gcloud CLI)."
+        ),
+    )
+    gcp_kms_project: str = Field(
+        default="",
+        description=(
+            "GCP project to enumerate KeyRings from. Empty disables the "
+            "scanner even when gcp_kms_scan_enabled is true."
+        ),
+    )
+    gcp_kms_location: str = Field(
+        default="global",
+        description=(
+            "KMS location to enumerate. 'global' is common; region names "
+            "(europe-west1, asia-south1, ...) can also be used."
+        ),
+    )
+    gcp_kms_max_keys: int = Field(
+        default=100,
+        ge=1,
+        description=(
+            "Cap on how many crypto keys the scanner will fetch. Prevents "
+            "unbounded scans on very large projects."
+        ),
+    )
+
     # --- Live TLS / certificate scanning ----------------------------------
     tls_scan_enabled: bool = Field(
         default=True,
@@ -379,6 +438,40 @@ class Settings(BaseSettings):
         description="Cached last-successful scan used by the demo fallback mode.",
     )
 
+    # --- PQC target policy ------------------------------------------------
+    # When true, every recommendation is upgraded to NIST Category 5
+    # (ML-KEM-1024 / ML-DSA-87) regardless of the source key size. Meant
+    # for long-life-secret data classes: national-security telemetry,
+    # long-lived HNDL-critical records, root CAs whose trust anchor
+    # outlives the quantum horizon. Off by default so the recommender's
+    # honest security-level derivation is what surfaces on the report.
+    high_assurance_mode: bool = Field(
+        default=False,
+        description=(
+            "Force every PQC recommendation to NIST Category 5. Use for "
+            "long-life-secret data classes (national-security, "
+            "HNDL-critical, root CAs). Off by default."
+        ),
+    )
+
+    # --- Storage backend selection ---------------------------------------
+    # 'auto' (default) uses Firebase when firebase_configured is True and falls
+    # back to the local filesystem otherwise. 'local' forces the on-prem /
+    # air-gapped path: no Firestore writes, no Firebase Storage uploads, no
+    # warning noise on missing Firebase config. 'firebase' is the inverse --
+    # require Firebase to be reachable and log loudly when it is not. The
+    # local mirror (artefacts_dir + fallback_cache_path) is written in every
+    # mode so a scan is never lost.
+    storage_backend: str = Field(
+        default="auto",
+        description=(
+            "Where to persist scan artefacts. One of 'auto', 'local', "
+            "'firebase'. 'auto' picks 'firebase' when firebase_configured is "
+            "true, else 'local'. 'local' forces on-prem / air-gapped storage "
+            "and never contacts Firebase. 'firebase' requires Firebase."
+        ),
+    )
+
     # --- Derived values ---------------------------------------------------
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -414,6 +507,29 @@ class Settings(BaseSettings):
         if not self.firebase_credentials_path:
             return False
         return Path(self.firebase_credentials_path).expanduser().is_file()
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def effective_storage_backend(self) -> str:
+        """Resolve ``storage_backend`` to a concrete value: 'firebase' or 'local'.
+
+        * ``auto`` -> ``firebase`` when :attr:`firebase_configured` is true,
+          otherwise ``local``. This is the honest default: the demo runs on
+          Firebase when a project + service account are present, and on the
+          local filesystem otherwise.
+        * ``local`` -> ``local`` unconditionally. Air-gap operators pin this
+          to prove no outbound Firebase traffic happens.
+        * ``firebase`` -> ``firebase`` unconditionally. Callers get to see
+          the Firebase failure loudly instead of silently degrading.
+        * Any other string is treated as ``auto`` for forward compatibility.
+        """
+        choice = (self.storage_backend or "auto").strip().lower()
+        if choice == "local":
+            return "local"
+        if choice == "firebase":
+            return "firebase"
+        # auto (and any unknown value) -> resolve against firebase_configured
+        return "firebase" if self.firebase_configured else "local"
 
     @property
     def demo_repo(self) -> Path:

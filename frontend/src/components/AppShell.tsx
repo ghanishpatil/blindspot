@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { BackendStatus } from '@/components/BackendStatus';
 import { ExportReportButtons } from '@/components/ExportReportButtons';
 import { Icon, type IconName } from '@/components/Icon';
+import { StorageBackendChip } from '@/components/StorageBackendChip';
 import { downloadCbom } from '@/services/api';
 
 interface AppShellProps {
@@ -128,6 +129,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Topbar Actions */}
           <div className="flex items-center gap-4">
+            <StorageBackendChip />
             <BackendStatus />
 
             <button

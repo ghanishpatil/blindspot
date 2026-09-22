@@ -10,6 +10,7 @@ import {
   addScanToHistory,
   getScanHistory,
 } from '@/services/scanHistory';
+import { parseTlsTargets } from '@/services/tlsTargets';
 import type { Finding, ScanResponse } from '@/types';
 
 const PIPELINE_STEPS = [
@@ -28,6 +29,7 @@ export const ScanPage: React.FC = () => {
   const [repositoryPath, setRepositoryPath] = useState(repoParam);
   const [targetType, setTargetType] = useState<'repo' | 'image'>('repo');
   const [mode, setMode] = useState<'live' | 'cached'>('live');
+  const [tlsTargetsInput, setTlsTargetsInput] = useState('');
   const [scanning, setScanning] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
@@ -60,6 +62,7 @@ export const ScanPage: React.FC = () => {
     }, 400);
 
     try {
+      const tlsTargets = parseTlsTargets(tlsTargetsInput);
       const res = await startScan({
         projectId: 'demo',
         mode,
@@ -72,6 +75,7 @@ export const ScanPage: React.FC = () => {
               ? { repositoryUrl: target }
               : { repositoryPath: target }
             : {}),
+        ...(tlsTargets.length > 0 ? { tlsTargets } : {}),
       });
 
       const findings = await fetchFindings({ projectId: 'demo' });
@@ -216,6 +220,47 @@ export const ScanPage: React.FC = () => {
               <option value="cached">Cached Fallback Result</option>
             </select>
           </div>
+        </div>
+
+        {/* Live TLS endpoints — optional, bundled into the same scan so
+            certificate findings flow through the same classifier + risk
+            engine + recommender as source findings. Empty = repo-only. */}
+        <div className="rounded-lg border border-[#222B35] bg-[#080B0F]/60 p-4">
+          <label
+            htmlFor="scan-tls-targets"
+            className="flex items-center justify-between gap-2 text-xs font-mono font-semibold uppercase text-slate-400"
+          >
+            <span className="flex items-center gap-1.5">
+              <Icon name="lock" size={13} className="text-[#7DB7E8]" />
+              Live TLS endpoints (optional)
+            </span>
+            {(() => {
+              const parsed = parseTlsTargets(tlsTargetsInput);
+              return parsed.length > 0 ? (
+                <span
+                  className="rounded border border-[#7DB7E8]/40 bg-[#7DB7E8]/10 px-2 py-0.5 font-mono text-[10px] text-[#7DB7E8]"
+                  data-testid="tls-target-count"
+                >
+                  {parsed.length} target{parsed.length === 1 ? '' : 's'}
+                </span>
+              ) : null;
+            })()}
+          </label>
+          <textarea
+            id="scan-tls-targets"
+            value={tlsTargetsInput}
+            onChange={(e) => setTlsTargetsInput(e.target.value)}
+            disabled={scanning}
+            rows={2}
+            placeholder="github.com, cloudflare.com:443, api.example.com"
+            className="mt-2 w-full resize-y rounded-lg border border-[#222B35] bg-[#080B0F] p-2.5 font-mono text-xs text-slate-200 placeholder:text-slate-600 focus:border-[#7DB7E8] focus:outline-none"
+          />
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            Comma or newline separated. Each endpoint's certificate flows
+            through the same risk pipeline as source findings — a real
+            ECDSA cert is treated identically to ECDSA in code. Backend
+            refuses private / loopback addresses (SSRF guard).
+          </p>
         </div>
 
         {/* Start Scan Button */}

@@ -59,6 +59,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         logger.warning("Firebase unavailable: %s", firebase.reason)
 
+    logger.info(
+        "Storage backend: requested=%s effective=%s",
+        settings.storage_backend,
+        settings.effective_storage_backend,
+    )
+
+    # Rehydrate the in-memory scan store from the on-disk fallback cache
+    # so a restart -- especially in on-prem / air-gapped mode -- does not
+    # silently lose the last successful scan. Import inline to avoid a
+    # circular dependency with the api package.
+    try:
+        from app.api.scan import rehydrate_from_cache
+
+        if rehydrate_from_cache(settings):
+            logger.info("Startup rehydration: last scan restored from cache.")
+        else:
+            logger.info("Startup rehydration: no cached scan on disk.")
+    except Exception as exc:  # noqa: BLE001 -- never fail startup on cache
+        logger.warning("Startup rehydration failed: %s", exc)
+
     if settings.auth_bypass_allowed():
         logger.warning(
             "AUTH_DISABLED is active. Requests run as the demo principal. "

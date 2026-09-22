@@ -51,6 +51,41 @@ def get_last_scan_data() -> tuple[dict | None, list | None, str | None]:
     return _last_scan, _last_findings, _last_cbom
 
 
+def rehydrate_from_cache(settings: Settings | None = None) -> bool:
+    """Repopulate the in-memory scan store from the on-disk fallback cache.
+
+    Called by the application lifespan hook so a backend restart -- the
+    common case in air-gapped / on-prem operation -- does not silently
+    lose the last successful scan. Returns True when a cache was found
+    and loaded, False when there was nothing to rehydrate.
+
+    Failure is logged and swallowed: a corrupt cache must not prevent the
+    API from starting. The next successful scan replaces the cache
+    anyway, so there is no data loss.
+    """
+    global _last_scan, _last_findings, _last_cbom
+
+    settings = settings or get_settings()
+    try:
+        cached = load_cached_result(settings)
+    except Exception as exc:  # noqa: BLE001 -- honest degrade on startup
+        logger.warning("Failed to load fallback cache on startup: %s", exc)
+        return False
+
+    if cached is None:
+        return False
+
+    scan, findings, cbom_json = cached
+    _last_scan = scan.serialise()
+    _last_findings = [f.serialise() for f in findings]
+    _last_cbom = cbom_json
+    logger.info(
+        "Rehydrated last scan from cache: id=%s findings=%d",
+        scan.id, len(findings),
+    )
+    return True
+
+
 def get_last_scan_for(
     user: AuthenticatedUser,
 ) -> tuple[dict | None, list | None, str | None]:
@@ -208,6 +243,7 @@ async def start_scan(
                 project_id=project_id,
                 owner_id=user.uid,
                 settings=settings,
+                tls_targets=request.tls_targets,
             )
         except Exception as exc:
             # Log the detail server-side; return a generic message to the client.
@@ -232,7 +268,11 @@ async def start_scan(
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to save cache: %s", exc)
 
-        # Save CBOM to local artifacts.
+        # Save CBOM, findings, and the scan record to local artifacts.
+        # scan.json is what the cross-scan aggregation endpoints
+        # (/api/scans, /api/scans/{id}, /api/scans/trend) walk to
+        # produce a portfolio view -- without it there is no way for
+        # the trend view to know a scan ever existed after a restart.
         try:
             storage = get_storage(settings)
             storage.write_local(project_id, scan.id, "cbom.json", cbom_json)
@@ -242,35 +282,56 @@ async def start_scan(
                 "findings.json",
                 json.dumps(_last_findings, indent=2, ensure_ascii=False),
             )
+            storage.write_local(
+                project_id,
+                scan.id,
+                "scan.json",
+                json.dumps(_last_scan, indent=2, ensure_ascii=False),
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to write local artifacts: %s", exc)
 
-        # Firebase Storage upload (best-effort).
-        try:
-            storage = get_storage(settings)
-            if storage.available:
-                storage.upload_text(project_id, scan.id, "cbom.json", cbom_json)
-                storage.upload_text(
-                    project_id,
-                    scan.id,
-                    "findings.json",
-                    json.dumps(_last_findings, indent=2, ensure_ascii=False),
-                )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Firebase Storage upload skipped: %s", exc)
+        # Storage-backend selection. In 'local' mode we skip every
+        # Firebase side effect -- no Storage upload, no Firestore write,
+        # no warning noise. The local mirror + fallback cache above are
+        # unconditional so an air-gapped operator still gets a full,
+        # queryable inventory on disk.
+        effective_backend = settings.effective_storage_backend
 
-        # Firestore persistence (best-effort).
-        try:
-            from app.firebase.firestore import get_firestore
+        if effective_backend != "local":
+            # Firebase Storage upload (best-effort).
+            try:
+                storage = get_storage(settings)
+                if storage.available:
+                    storage.upload_text(project_id, scan.id, "cbom.json", cbom_json)
+                    storage.upload_text(
+                        project_id,
+                        scan.id,
+                        "findings.json",
+                        json.dumps(_last_findings, indent=2, ensure_ascii=False),
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Firebase Storage upload skipped: %s", exc)
 
-            fs = get_firestore(settings)
-            if fs.available:
-                fs.set_document("scans", scan.id, scan.to_firestore_document())
-                batch = {f.id: f.to_firestore_document() for f in findings}
-                fs.write_batch("findings", batch)
-                logger.info("Persisted scan and %d findings to Firestore.", len(findings))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Firestore persistence skipped: %s", exc)
+            # Firestore persistence (best-effort).
+            try:
+                from app.firebase.firestore import get_firestore
+
+                fs = get_firestore(settings)
+                if fs.available:
+                    fs.set_document("scans", scan.id, scan.to_firestore_document())
+                    batch = {f.id: f.to_firestore_document() for f in findings}
+                    fs.write_batch("findings", batch)
+                    logger.info("Persisted scan and %d findings to Firestore.", len(findings))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Firestore persistence skipped: %s", exc)
+        else:
+            logger.info(
+                "STORAGE_BACKEND=local: skipping Firebase Storage upload and "
+                "Firestore persistence. Scan mirrored to %s and cache %s.",
+                settings.artifacts,
+                settings.fallback_cache,
+            )
 
         return ScanResponse(
             scan_id=scan.id,

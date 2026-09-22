@@ -277,3 +277,163 @@ def test_client_build_failure_returns_empty(monkeypatch: pytest.MonkeyPatch) -> 
         raise RuntimeError("region typo, config broken, etc.")
 
     assert scan_aws_kms(client_factory=broken_factory) == []
+
+
+# ---------------------------------------------------------------------------
+# Rotation configuration -- PS Req 2 AC 4
+#
+# The PS wording is "record the key algorithm, key size, AND rotation
+# configuration". These tests protect that closure so the boolean flag
+# stays on every symmetric customer-managed finding, and stays absent
+# (honest n/a) on everything else. See _rotation_supported for the exact
+# eligibility rule.
+# ---------------------------------------------------------------------------
+
+def test_rotation_snippet_says_enabled_when_key_rotates(moto_kms) -> None:
+    """A customer-managed symmetric key with rotation ON must surface
+    'rotation=enabled' in the evidence snippet."""
+    key = moto_kms.create_key(KeySpec="SYMMETRIC_DEFAULT", KeyUsage="ENCRYPT_DECRYPT")
+    key_id = key["KeyMetadata"]["KeyId"]
+    moto_kms.enable_key_rotation(KeyId=key_id)
+
+    metadata = moto_kms.describe_key(KeyId=key_id)["KeyMetadata"]
+    from app.scanner.aws_kms import _read_rotation_status
+    rotation = _read_rotation_status(moto_kms, metadata)
+    assert rotation is True
+
+    finding = _resolve_key(metadata, region=AWS_REGION, rotation_enabled=rotation)
+    assert finding is not None
+    assert "rotation=enabled" in finding.evidence.code_snippet
+
+
+def test_rotation_snippet_says_disabled_when_key_does_not_rotate(moto_kms) -> None:
+    """A customer-managed symmetric key with rotation OFF must surface
+    'rotation=disabled'. moto keys start with rotation disabled by
+    default, so no extra setup is needed."""
+    key = moto_kms.create_key(KeySpec="SYMMETRIC_DEFAULT", KeyUsage="ENCRYPT_DECRYPT")
+    key_id = key["KeyMetadata"]["KeyId"]
+
+    metadata = moto_kms.describe_key(KeyId=key_id)["KeyMetadata"]
+    from app.scanner.aws_kms import _read_rotation_status
+    rotation = _read_rotation_status(moto_kms, metadata)
+    assert rotation is False
+
+    finding = _resolve_key(metadata, region=AWS_REGION, rotation_enabled=rotation)
+    assert finding is not None
+    assert "rotation=disabled" in finding.evidence.code_snippet
+
+
+def test_rotation_snippet_says_na_for_asymmetric_keys(moto_kms) -> None:
+    """Asymmetric keys cannot rotate. The scanner must NOT call
+    GetKeyRotationStatus (moto would refuse it anyway), and the snippet
+    must record 'rotation=n/a' honestly."""
+    from app.scanner.aws_kms import _read_rotation_status, _rotation_supported
+
+    key = moto_kms.create_key(KeySpec="RSA_2048", KeyUsage="SIGN_VERIFY")
+    metadata = moto_kms.describe_key(KeyId=key["KeyMetadata"]["KeyId"])["KeyMetadata"]
+
+    # Guard: the eligibility helper must classify this as unsupported.
+    assert _rotation_supported(metadata) is False
+
+    # And the read helper must therefore return None without touching AWS.
+    called = {"count": 0}
+
+    class _CountingClient:
+        def get_key_rotation_status(self, **kwargs):  # noqa: ARG002
+            called["count"] += 1
+            raise AssertionError("must not call GetKeyRotationStatus on asymmetric key")
+
+    assert _read_rotation_status(_CountingClient(), metadata) is None
+    assert called["count"] == 0
+
+    finding = _resolve_key(metadata, region=AWS_REGION, rotation_enabled=None)
+    assert finding is not None
+    assert "rotation=n/a" in finding.evidence.code_snippet
+
+
+def test_rotation_snippet_says_na_for_aws_managed_key() -> None:
+    """AWS-managed keys are rotated on a schedule the customer does not
+    control -- the scanner must skip the call and record 'n/a'."""
+    from app.scanner.aws_kms import _read_rotation_status, _rotation_supported
+
+    metadata = {
+        "KeyId": "aws-managed-1",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeyState": "Enabled",
+        "KeyManager": "AWS",   # <-- the discriminator
+        "Origin": "AWS_KMS",
+    }
+    assert _rotation_supported(metadata) is False
+
+    class _RaisingClient:
+        def get_key_rotation_status(self, **kwargs):  # noqa: ARG002
+            raise AssertionError("must not call GetKeyRotationStatus on AWS-managed key")
+
+    assert _read_rotation_status(_RaisingClient(), metadata) is None
+
+    finding = _resolve_key(metadata, region=AWS_REGION, rotation_enabled=None)
+    assert finding is not None
+    assert "rotation=n/a" in finding.evidence.code_snippet
+
+
+def test_rotation_snippet_says_na_for_external_origin() -> None:
+    """External-origin keys ship customer-supplied material that AWS
+    cannot rotate. Guard behaves the same as AWS-managed."""
+    from app.scanner.aws_kms import _rotation_supported
+
+    metadata = {
+        "KeyId": "external-1",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyManager": "CUSTOMER",
+        "Origin": "EXTERNAL",   # <-- the discriminator
+    }
+    assert _rotation_supported(metadata) is False
+
+
+def test_rotation_read_swallows_client_error(moto_kms) -> None:
+    """A GetKeyRotationStatus failure must be swallowed and folded into
+    None -- NEVER propagated as an exception. Fabricating False would
+    lie about the rotation state; None is the honest 'unknown'."""
+    from botocore.exceptions import ClientError
+
+    from app.scanner.aws_kms import _read_rotation_status
+
+    key = moto_kms.create_key(KeySpec="SYMMETRIC_DEFAULT", KeyUsage="ENCRYPT_DECRYPT")
+    metadata = moto_kms.describe_key(KeyId=key["KeyMetadata"]["KeyId"])["KeyMetadata"]
+
+    class _FailingClient:
+        def get_key_rotation_status(self, **kwargs):  # noqa: ARG002
+            raise ClientError(
+                {"Error": {"Code": "AccessDeniedException", "Message": "nope"}},
+                "GetKeyRotationStatus",
+            )
+
+    assert _read_rotation_status(_FailingClient(), metadata) is None
+
+
+def test_scan_records_rotation_state_end_to_end(
+    monkeypatch: pytest.MonkeyPatch, moto_kms
+) -> None:
+    """Full-pipeline smoke: create two symmetric CMKs (one with rotation
+    enabled, one disabled) and assert the resulting findings carry the
+    matching rotation strings in their evidence."""
+    monkeypatch.setenv("AWS_KMS_SCAN_ENABLED", "true")
+    get_settings.cache_clear()
+
+    on = moto_kms.create_key(KeySpec="SYMMETRIC_DEFAULT", KeyUsage="ENCRYPT_DECRYPT",
+                              Description="rotates")
+    off = moto_kms.create_key(KeySpec="SYMMETRIC_DEFAULT", KeyUsage="ENCRYPT_DECRYPT",
+                               Description="does-not-rotate")
+    moto_kms.enable_key_rotation(KeyId=on["KeyMetadata"]["KeyId"])
+
+    findings = scan_aws_kms(client_factory=lambda: moto_kms)
+    snippets = [f.evidence.code_snippet for f in findings]
+
+    # Exactly one 'enabled' and one 'disabled' among the two symmetric
+    # keys. Anything else means the eligibility guard or the API call is
+    # broken.
+    assert sum("rotation=enabled" in s for s in snippets) == 1
+    assert sum("rotation=disabled" in s for s in snippets) == 1
+    # And no fabricated n/a for symmetric CMKs.
+    assert sum("rotation=n/a" in s for s in snippets) == 0

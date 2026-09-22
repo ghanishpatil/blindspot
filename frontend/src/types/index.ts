@@ -74,6 +74,14 @@ export type DetectionMethod =
   | 'tls_probe'
   | 'binary_signature'
   | 'infra_declaration'
+  | 'static_cert_file'
+  | 'static_key_material'
+  | 'static_keystore'
+  | 'pkcs11_attested'
+  | 'aws_kms_attested'
+  | 'azure_kv_attested'
+  | 'gcp_kms_attested'
+  | 'config_policy_declared'
   | 'unknown';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -292,6 +300,16 @@ export interface ScanRequest {
   imageRef?: string;
   /** Local saved image archive (docker save / OCI). Development only. */
   imageArchivePath?: string;
+  /**
+   * Optional live TLS endpoints to probe alongside the repository / image
+   * scan. Each entry is `host` (defaults to 443) or `host:port`. Findings
+   * from these probes flow through the SAME classifier + risk engine +
+   * recommender as source findings, so a real ECDSA certificate is
+   * treated identically to ECDSA in source code.
+   *
+   * Serialised as `tls_targets` on the wire (backend uses snake_case).
+   */
+  tlsTargets?: string[];
   mode?: ScanMode;
 }
 
@@ -331,6 +349,22 @@ export interface MoscaConfig {
   zPresets: ZPreset[];
 }
 
+/**
+ * Storage backend state, reported by the health endpoint.
+ *
+ * `requested` is exactly what the operator set (auto | local | firebase).
+ * `effective` is what the running process resolved to; this is the one to
+ * point at when someone asks "prove nothing leaves the box" -- when it
+ * reads `local` the tool has zero outbound Firebase traffic on any code
+ * path, and every scan lands on `artifactsDir` + `fallbackCachePath`.
+ */
+export interface StorageStatus {
+  requested: 'auto' | 'local' | 'firebase' | string;
+  effective: 'local' | 'firebase' | string;
+  artifactsDir: string;
+  fallbackCachePath: string;
+}
+
 export interface HealthResponse {
   status: string;
   service: string;
@@ -345,6 +379,12 @@ export interface HealthResponse {
     demoRepository: SubsystemStatus;
     fallbackCache: SubsystemStatus;
   };
+  /**
+   * Optional -- present on backends that report the storage-backend
+   * resolution. Missing on older builds, which the UI degrades to
+   * "unknown".
+   */
+  storage?: StorageStatus;
   mosca: MoscaConfig;
 }
 

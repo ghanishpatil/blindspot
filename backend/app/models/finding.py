@@ -113,6 +113,27 @@ class DetectionMethod(str, Enum):
     heuristic sits between the API response and the finding.
     """
 
+    AZURE_KV_ATTESTED = "azure_kv_attested"
+    """A live Azure Key Vault ``get_key`` call attested this key's algorithm.
+
+    Emitted by the Azure Key Vault scanner. The key type comes straight
+    off ``KeyVaultKey.key.kty`` (``RSA``, ``RSA-HSM``, ``EC``, ``EC-HSM``,
+    ``oct``, ``oct-HSM``) and the key size / curve is read off the JWK
+    payload the vault returns. HSM-backed key types (``*-HSM``) also
+    surface with :class:`ArtefactType.HARDWARE_MODULE` so the inventory
+    keeps hardware-vs-software distinction intact.
+    """
+
+    GCP_KMS_ATTESTED = "gcp_kms_attested"
+    """A live GCP KMS ``get_crypto_key`` call attested this key's algorithm.
+
+    Emitted by the Google Cloud KMS scanner. Each CryptoKey carries a
+    primary CryptoKeyVersion whose ``algorithm`` field is an enum
+    (``RSA_SIGN_PSS_2048_SHA256``, ``EC_SIGN_P256_SHA256``,
+    ``GOOGLE_SYMMETRIC_ENCRYPTION``, ...). We map that enum directly to
+    the normalised finding without recomputation.
+    """
+
     CONFIG_POLICY_DECLARED = "config_policy_declared"
     """A protocol / cipher / KEX / MAC / hostkey declared in a config file.
 

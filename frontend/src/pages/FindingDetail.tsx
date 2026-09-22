@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { CodeEvidence } from '@/components/CodeEvidence';
+import { DetectionSourceBadge, RotationChip } from '@/components/DetectionSourceBadge';
+import { FindingPresetSensitivity } from '@/components/FindingPresetSensitivity';
 import { Icon, type IconName } from '@/components/Icon';
 import { RecommendationCard } from '@/components/RecommendationCard';
 import { KeyValue, MoscaVisualiser, RiskChip, SectionEyebrow } from '@/design';
@@ -70,6 +72,14 @@ export default function FindingDetail() {
       {/* Finding header */}
       <FindingHeader finding={finding} />
 
+      {/* Compliance-sensitivity strip. Silent no-op when the compliance
+          endpoint is unavailable (e.g. no scan yet), otherwise shows a
+          preset dropdown that flips this finding's tier + Mosca math
+          under every configured quantum horizon. */}
+      {finding.id ? (
+        <FindingPresetSensitivity findingId={finding.id} />
+      ) : null}
+
       {/* Two-column chain */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         {/* Left: evidence — sticky on desktop so it stays as an anchor while
@@ -120,6 +130,11 @@ const FindingHeader: React.FC<{ finding: Finding }> = ({ finding }) => {
               {algorithm}
             </h1>
             <RiskChip tier={riskTier} size="md" />
+            <DetectionSourceBadge method={finding.evidence?.detectionMethod} />
+            <RotationChip
+              method={finding.evidence?.detectionMethod}
+              codeSnippet={finding.evidence?.codeSnippet}
+            />
             {isHndlExposed ? (
               <span
                 title="Harvest-Now-Decrypt-Later exposure: confidentiality + Shor-breakable + overdue."

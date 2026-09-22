@@ -104,6 +104,18 @@ class ScanRequest(BlindspotModel):
             "docker-archive tarball) to scan. Development use only."
         ),
     )
+    tls_targets: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional live TLS endpoints to probe alongside the repository / "
+            "image scan. Each entry is 'host' (defaults to port 443) or "
+            "'host:port'. Findings from these probes flow through the SAME "
+            "classifier + risk engine + recommender as source findings, so an "
+            "ECDSA certificate is treated identically to ECDSA in code. Refuses "
+            "internal/private/loopback addresses (SSRF guard). Errors on "
+            "individual targets are logged and the scan continues."
+        ),
+    )
     mode: ScanMode = Field(
         default=ScanMode.LIVE,
         description="LIVE performs a real scan; CACHED loads the last successful result.",

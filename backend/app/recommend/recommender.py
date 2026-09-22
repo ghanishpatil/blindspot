@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 
+from app.config import Settings, get_settings
 from app.models.asset import CryptoUsage
 from app.models.finding import Classification, Finding
 from app.models.recommendation import (
@@ -34,6 +35,12 @@ from app.models.recommendation import (
 )
 from app.models.risk import CurrentRisk, MoscaAssessment, QuantumRisk, RiskTier
 from app.recommend.latency import get_latency_profile
+from app.recommend.security_level import (
+    NistCategory,
+    SecurityLevel,
+    classify_security_level,
+    pqc_target_for_category,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -268,14 +275,19 @@ def _build_cost_profile(
     )
 
 
-def recommend(finding: Finding) -> Recommendation:
+def recommend(finding: Finding, settings: Settings | None = None) -> Recommendation:
     """Produce a recommendation for a classified, risk-assessed finding.
 
     The logic:
     1. If currently weak → REMEDIATE_NOW (not a quantum recommendation).
     2. If unresolved parameter → INVESTIGATE (can't size a replacement).
     3. Based on Mosca tier + usage → PQC / HYBRID / DEFER.
+
+    ``settings`` is used only to read :attr:`Settings.high_assurance_mode`.
+    When None, the module-level cached settings are consulted -- so
+    production callers don't need to thread the object through.
     """
+    settings = settings or get_settings()
     algorithm = finding.algorithm
     classification = finding.classification
     current_risk = finding.current_risk
@@ -325,41 +337,77 @@ def recommend(finding: Finding) -> Recommendation:
 
     # ── Priority 3: Tier-based recommendation ─────────────────────────
     if risk_tier == RiskTier.OVERDUE:
-        return _recommend_pqc(finding)
+        return _recommend_pqc(finding, settings)
     elif risk_tier == RiskTier.TRANSITIONAL:
-        return _recommend_hybrid(finding)
+        return _recommend_hybrid(finding, settings)
     else:
         return _recommend_defer(finding)
 
 
-def _recommend_pqc(finding: Finding) -> Recommendation:
-    """Pure PQC migration for overdue findings."""
-    algorithm = finding.algorithm
+def _classify(finding: Finding, settings: Settings) -> SecurityLevel:
+    """Wrap :func:`classify_security_level` to feed it a Finding.
+
+    Kept as a one-line helper so the two recommendation functions share
+    exactly one code path for security-level derivation.
+    """
+    return classify_security_level(
+        finding.algorithm,
+        finding.parameter,
+        finding.curve,
+        high_assurance_mode=settings.high_assurance_mode,
+    )
+
+
+def _classical_hybrid_label(finding: Finding) -> str:
+    """Name of the classical component in a hybrid recommendation.
+
+    Uses the finding's ``display_name`` as the base, then strips the
+    parenthesised curve if present, so ``ECDSA (secp256r1)`` becomes
+    ``ECDSA``. That keeps hybrid strings readable, e.g.::
+
+        X25519 + ML-KEM-512      (X25519 already parameter-free)
+        RSA-2048 + ML-KEM-512    (display_name already includes size)
+        ECDSA + ML-DSA-44        (parenthesis stripped)
+    """
+    display = finding.display_name or finding.algorithm or "classical"
+    # Split "ECDSA (secp256r1)" -> "ECDSA".
+    if " (" in display:
+        display = display.split(" (", 1)[0]
+    return display
+
+
+def _recommend_pqc(finding: Finding, settings: Settings) -> Recommendation:
+    """Pure PQC migration for overdue findings.
+
+    Target selection is driven by the finding's derived NIST security
+    category, not by algorithm name -- so RSA-2048 and RSA-4096 land at
+    different targets and the derivation shows exactly why.
+    """
     usage = finding.usage
-
-    # Choose target based on usage, not just algorithm name.
-    if _is_signature_usage(usage):
-        targets = _SIG_PQC_TARGETS.get(algorithm, _SIG_PQC_TARGETS.get("RSA", {}))
-    else:
-        targets = _KEX_PQC_TARGETS.get(algorithm, _KEX_PQC_TARGETS.get("RSA", {}))
-
-    pqc_algo = targets.get("pqc", "ML-KEM-768")
-    pqc_set = targets.get("pqc_set", pqc_algo)
-    refs = targets.get("references", [])
     is_sig = _is_signature_usage(usage)
+
+    level = _classify(finding, settings)
+    target = pqc_target_for_category(level.category, is_signature=is_sig)
+
+    pqc_algo = str(target["target"])
+    pqc_set = str(target["parameter_set"])
+    refs = list(target["references"])  # type: ignore[arg-type]
+
     cost = _build_cost_profile(pqc_algo, finding, is_signature=is_sig, hybrid=False)
     latency = get_latency_profile(pqc_algo)
 
     usage_label = usage.value.replace("_", " ")
+    mosca_equation = finding.mosca.equation if finding.mosca else "N/A"
+    rationale = (
+        f"{finding.display_name} used for {usage_label} is overdue for "
+        f"quantum migration (Mosca: {mosca_equation}). "
+        f"{level.derivation} -> {pqc_algo}."
+    )
     return Recommendation(
         strategy=MigrationStrategy.PQC,
         algorithm=pqc_algo,
         parameter_set=pqc_set,
-        rationale=(
-            f"{finding.display_name} used for {usage_label} is overdue for "
-            f"quantum migration (Mosca: {finding.mosca.equation if finding.mosca else 'N/A'}). "
-            f"Migrate to {pqc_algo} for post-quantum security."
-        ),
+        rationale=rationale,
         replaces=finding.display_name,
         priority=1,
         effort="high",
@@ -374,43 +422,39 @@ def _recommend_pqc(finding: Finding) -> Recommendation:
     )
 
 
-def _recommend_hybrid(finding: Finding) -> Recommendation:
-    """Hybrid classical + PQC for transitional findings."""
-    algorithm = finding.algorithm
+def _recommend_hybrid(finding: Finding, settings: Settings) -> Recommendation:
+    """Hybrid classical + PQC for transitional findings.
+
+    Same category-driven target selection as pure PQC, wrapped in a
+    hybrid name that names both the classical share and the PQC share.
+    """
     usage = finding.usage
-    param = finding.parameter or algorithm
-
-    if _is_signature_usage(usage):
-        targets = _SIG_PQC_TARGETS.get(algorithm, _SIG_PQC_TARGETS.get("RSA", {}))
-        pqc_component = targets.get("pqc", "ML-DSA-65")
-    else:
-        targets = _KEX_PQC_TARGETS.get(algorithm, _KEX_PQC_TARGETS.get("RSA", {}))
-        pqc_component = targets.get("hybrid", targets.get("pqc", "ML-KEM-768"))
-
-    # Build the hybrid name: classical + PQC.
-    if targets.get("hybrid_prefix"):
-        # For ECC-based: use the detected curve/param + PQC.
-        classical = param if param != algorithm else algorithm
-        hybrid_name = f"{classical} + {pqc_component}"
-    else:
-        hybrid_name = f"{param} + {pqc_component}"
-
-    hybrid_set = targets.get("hybrid_set", pqc_component)
-    refs = targets.get("references", [])
     is_sig = _is_signature_usage(usage)
+
+    level = _classify(finding, settings)
+    target = pqc_target_for_category(level.category, is_signature=is_sig)
+
+    pqc_component = str(target["target"])
+    pqc_set = str(target["parameter_set"])
+    refs = list(target["references"])  # type: ignore[arg-type]
+
+    classical = _classical_hybrid_label(finding)
+    hybrid_name = f"{classical} + {pqc_component}"
+
     cost = _build_cost_profile(pqc_component, finding, is_signature=is_sig, hybrid=True)
     latency = get_latency_profile(pqc_component)
 
     usage_label = usage.value.replace("_", " ")
+    rationale = (
+        f"{finding.display_name} used for {usage_label} is in the transitional "
+        "window. Hybrid preserves classical security while adding post-quantum "
+        f"protection. {level.derivation} -> {pqc_component}."
+    )
     return Recommendation(
         strategy=MigrationStrategy.HYBRID,
         algorithm=hybrid_name,
-        parameter_set=hybrid_set,
-        rationale=(
-            f"{finding.display_name} used for {usage_label} is in the transitional "
-            "window. A hybrid approach preserves classical security while adding "
-            f"post-quantum protection via {pqc_component}."
-        ),
+        parameter_set=pqc_set,
+        rationale=rationale,
         replaces=finding.display_name,
         priority=2,
         effort="moderate",

@@ -159,10 +159,22 @@ export function fetchHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return request<HealthResponse>('/api/health', { authenticated: false, signal });
 }
 
-/** Start a scan. */
+/**
+ * Start a scan.
+ *
+ * The TypeScript-side field `tlsTargets` is rewritten to the wire-level
+ * `tls_targets` array before the request. Every other field on
+ * :class:`ScanRequest` is passed through unchanged.
+ */
 export async function startScan(body: ScanRequest = {}): Promise<ScanResponse> {
+  const { tlsTargets, ...rest } = body;
+  const wire: Record<string, unknown> = { ...rest };
+  if (tlsTargets && tlsTargets.length > 0) {
+    wire.tls_targets = tlsTargets;
+  }
+
   try {
-    return await request<ScanResponse>('/api/scan', { method: 'POST', body });
+    return await request<ScanResponse>('/api/scan', { method: 'POST', body: wire });
   } catch (error) {
     if (error && typeof error === 'object' && 'status' in error && (error as any).status === 0) {
       return {

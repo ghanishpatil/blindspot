@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "blindspot.benchmark.v1",
+  "name": "blindspot-builtin",
+  "description": "Small hand-labelled crypto-misuse benchmark bundled with Blindspot. Twelve cases spanning weak, transitional, strong, and no-crypto patterns. Ground truth is what a cryptography engineer would expect the pipeline to fire on; the harness reports precision / recall / F1 against these labels.",
+  "cases": [
+    {
+      "id": "weak-rsa-1024",
+      "file": "cases/weak_rsa_1024.py",
+      "category": "weak-crypto/rsa",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "RSA",
+          "parameter": "1024",
+          "expectedTier": "overdue",
+          "notes": "NIST SP 800-131A rev 3 disallows 1024-bit RSA for signing since 2013."
+        }
+      ]
+    },
+    {
+      "id": "overdue-rsa-2048",
+      "file": "cases/overdue_rsa_2048.py",
+      "category": "quantum-overdue/rsa",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "RSA",
+          "parameter": "2048",
+          "expectedTier": "overdue",
+          "notes": "Shor-vulnerable; Mosca X > Z under 10-year quantum horizon."
+        }
+      ]
+    },
+    {
+      "id": "overdue-ecdsa-p256",
+      "file": "cases/overdue_ecdsa_p256.py",
+      "category": "quantum-overdue/ec",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "ECC",
+          "curve": "secp256r1",
+          "expectedTier": "overdue",
+          "notes": "ECDSA on P-256 is Shor-vulnerable regardless of classical strength."
+        }
+      ]
+    },
+    {
+      "id": "weak-md5",
+      "file": "cases/weak_md5.py",
+      "category": "weak-crypto/hash",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "MD5",
+          "notes": "Collision-broken since 2004; unsuitable for signatures or auth."
+        }
+      ]
+    },
+    {
+      "id": "weak-sha1",
+      "file": "cases/weak_sha1.py",
+      "category": "weak-crypto/hash",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "SHA-1",
+          "notes": "Collisions demonstrated (SHAttered, 2017); NIST disallowed for signing after 2013."
+        }
+      ]
+    },
+    {
+      "id": "weak-des-ecb",
+      "file": "cases/weak_des_ecb.py",
+      "category": "weak-crypto/symmetric",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "DES",
+          "notes": "56-bit key + ECB mode. Two independent defects."
+        }
+      ]
+    },
+    {
+      "id": "weak-3des",
+      "file": "cases/weak_3des.py",
+      "category": "weak-crypto/symmetric",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "3DES",
+          "notes": "Effective 112-bit; NIST SP 800-131A rev 3 disallows for encryption after 2023."
+        }
+      ]
+    },
+    {
+      "id": "overdue-dh-2048",
+      "file": "cases/overdue_dh_2048.py",
+      "category": "quantum-overdue/keyexchange",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "DH",
+          "parameter": "2048",
+          "expectedTier": "overdue",
+          "notes": "Shor-vulnerable finite-field DH."
+        }
+      ]
+    },
+    {
+      "id": "weak-aes-ecb",
+      "file": "cases/weak_aes_ecb.py",
+      "category": "weak-crypto/mode",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "AES",
+          "notes": "AES itself is strong; ECB mode is the defect (block-equality leak)."
+        }
+      ]
+    },
+    {
+      "id": "acceptable-aes-256-gcm",
+      "file": "cases/strong_aes_gcm.py",
+      "category": "acceptable/symmetric",
+      "language": "python",
+      "expected": [
+        {
+          "algorithm": "AES",
+          "parameter": "256",
+          "expectedTier": "low-risk",
+          "notes": "AES-256-GCM. Detection expected; risk tier should stay low."
+        }
+      ]
+    },
+    {
+      "id": "negative-pure-math",
+      "file": "cases/negative_pure_math.py",
+      "category": "negative",
+      "language": "python",
+      "expected": []
+    },
+    {
+      "id": "negative-string-ops",
+      "file": "cases/negative_string_ops.py",
+      "category": "negative",
+      "language": "python",
+      "expected": []
+    }
+  ]
+}

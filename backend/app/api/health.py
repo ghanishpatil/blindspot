@@ -57,9 +57,24 @@ async def health(
         },
     }
 
-    degraded = [
-        name for name, detail in subsystems.items() if not detail.get("available")
-    ]
+    # Which subsystems are REQUIRED for the tool to be considered "ready".
+    #
+    # Firebase is optional whenever the operator has pinned local storage
+    # (`STORAGE_BACKEND=local` / air-gap mode). Reporting the readiness
+    # state as "degraded" for a subsystem the operator explicitly opted
+    # out of would be dishonest: the tool is behaving exactly as
+    # configured. The subsystem itself is still surfaced under
+    # `subsystems.firebase` so an operator can see its state, but it
+    # does not contribute to `readiness`.
+    firebase_required = settings.effective_storage_backend != "local"
+
+    degraded: list[str] = []
+    for name, detail in subsystems.items():
+        if detail.get("available"):
+            continue
+        if name == "firebase" and not firebase_required:
+            continue
+        degraded.append(name)
 
     return {
         "status": "ok",
@@ -70,6 +85,16 @@ async def health(
         "readiness": "ready" if not degraded else "degraded",
         "degradedSubsystems": degraded,
         "subsystems": subsystems,
+        "storage": {
+            # requested = what the operator asked for ("auto" / "local" /
+            # "firebase"). effective = what the system actually uses right
+            # now. In air-gap mode both are "local" and this is the field
+            # to point at when someone asks "prove nothing leaves the box".
+            "requested": settings.storage_backend,
+            "effective": settings.effective_storage_backend,
+            "artifactsDir": str(settings.artifacts),
+            "fallbackCachePath": str(settings.fallback_cache),
+        },
         "mosca": {
             "activeZ": settings.quantum_horizon_years,
             "activeZSource": settings.quantum_horizon_source,

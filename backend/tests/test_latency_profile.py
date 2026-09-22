@@ -223,8 +223,12 @@ def test_handshake_overhead_carries_own_citation() -> None:
 # ═════════════════════════════════════════════════════════════════════════
 
 def test_pqc_recommendation_carries_latency_profile() -> None:
-    """A pure-PQC migration for ECDSA-P-256 must land on ML-DSA-65 and
-    carry the matching latency profile."""
+    """A pure-PQC migration for ECDSA-P-256 must carry a matching
+    latency profile.
+
+    ECDSA on P-256 is ~128-bit classical -> NIST Cat 1 -> ML-DSA-44
+    (the security-level rewrite. The old algorithm-name mapping used to
+    lock every ECDSA to ML-DSA-65 regardless of curve.)"""
     finding = _finding(
         "ECDSA",
         parameter="P-256",
@@ -234,13 +238,15 @@ def test_pqc_recommendation_carries_latency_profile() -> None:
     rec = recommend(finding)
     assert rec.strategy == MigrationStrategy.PQC
     assert rec.latency_profile is not None
-    assert rec.latency_profile.target == "ML-DSA-65"
+    assert rec.latency_profile.target == "ML-DSA-44"
     assert rec.latency_profile.sources
 
 
 def test_hybrid_recommendation_carries_latency_profile() -> None:
     """A hybrid recommendation for ECDH in the transitional window must
-    carry a latency profile keyed on the PQC component."""
+    carry a latency profile keyed on the PQC component.
+
+    ECDH on P-256 is ~128-bit classical -> Cat 1 -> ML-KEM-512."""
     finding = _finding(
         "ECDH",
         parameter="P-256",
@@ -252,7 +258,7 @@ def test_hybrid_recommendation_carries_latency_profile() -> None:
     rec = recommend(finding)
     assert rec.strategy == MigrationStrategy.HYBRID
     assert rec.latency_profile is not None
-    assert rec.latency_profile.target == "ML-KEM-768"
+    assert rec.latency_profile.target == "ML-KEM-512"
 
 
 def test_defer_recommendation_has_no_latency_profile() -> None:

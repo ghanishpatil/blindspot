@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { DetectionSourceBadge, RotationChip } from '@/components/DetectionSourceBadge';
 import { Icon } from '@/components/Icon';
 import { RiskBadge } from '@/components/RiskBadge';
 import type { Finding } from '@/types';
@@ -121,6 +122,7 @@ export const FindingTable: React.FC<FindingTableProps> = ({
           <thead className="sticky top-0 z-10 border-b border-[#222B35] bg-[#0C1117] font-mono uppercase text-[11px] tracking-wider text-slate-400 shadow-[0_1px_0_#222B35]">
             <tr>
               <th className="px-4 py-3 font-medium">Algorithm</th>
+              <th className="px-4 py-3 font-medium">Source</th>
               <th className="px-4 py-3 font-medium">Location</th>
               <th className="px-4 py-3 font-medium">Artefact Type</th>
               <th className="px-4 py-3 font-medium">Confidence</th>
@@ -132,7 +134,7 @@ export const FindingTable: React.FC<FindingTableProps> = ({
           <tbody className="divide-y divide-[#222B35]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-slate-500">
+                <td colSpan={8} className="p-8 text-center text-slate-500">
                   No cryptographic findings match the selected filters.
                 </td>
               </tr>
@@ -145,7 +147,10 @@ export const FindingTable: React.FC<FindingTableProps> = ({
                     onClick={() => handleRowClick(finding)}
                     className="group cursor-pointer bg-[#11171E] transition-colors hover:bg-[#151C24]"
                   >
-                    {/* Algorithm */}
+                    {/* Algorithm — keep semantic finding-state chips
+                        (HNDL, Verify, Unresolved) inline; detection-source
+                        chip moves to its own column so cloud KMS / HSM /
+                        TLS findings are visually obvious. */}
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-slate-100 group-hover:text-[#7DB7E8]">
@@ -172,34 +177,28 @@ export const FindingTable: React.FC<FindingTableProps> = ({
                             Verify
                           </span>
                         ) : null}
-                        {finding.evidence?.detectionMethod === 'binary_signature' ? (
-                          <span
-                            className="rounded bg-purple-500/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-300 border border-purple-500/40"
-                            title="Binary fingerprint match (crypto constants / OIDs / library strings). A hint about what is linked in, not proof of how it is used."
-                          >
-                            Binary
-                          </span>
-                        ) : null}
-                        {finding.evidence?.detectionMethod === 'infra_declaration' ? (
-                          <span
-                            className="rounded bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300 border border-cyan-500/40"
-                            title="Declared HSM / KMS reference in IaC or SDK code. The surface exists — the exact algorithm inside still needs verification."
-                          >
-                            Declared
-                          </span>
-                        ) : null}
-                        {finding.evidence?.detectionMethod === 'tls_probe' ? (
-                          <span
-                            className="rounded bg-teal-500/10 px-1.5 py-0.5 font-mono text-[10px] text-teal-300 border border-teal-500/40"
-                            title="Observed live over the network from a TLS handshake."
-                          >
-                            Live TLS
-                          </span>
-                        ) : null}
                       </div>
                       <span className="text-[11px] text-slate-400 block truncate max-w-[180px]">
                         {finding.displayName}
                       </span>
+                    </td>
+
+                    {/* Source — where this finding came from (AWS KMS,
+                        Azure KV, GCP KMS, HSM, Live TLS, on-disk, etc.).
+                        Extracted as its own column so a judge scanning
+                        the list can pattern-match on colour. */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <DetectionSourceBadge
+                          method={finding.evidence?.detectionMethod}
+                          size="sm"
+                        />
+                        <RotationChip
+                          method={finding.evidence?.detectionMethod}
+                          codeSnippet={finding.evidence?.codeSnippet}
+                          size="sm"
+                        />
+                      </div>
                     </td>
 
                     {/* Location */}

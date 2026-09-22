@@ -55,12 +55,17 @@ def make(
 def test_rsa_kex_pqc_has_kem_cost_profile() -> None:
     r = recommend(make("RSA", CryptoUsage.KEY_ESTABLISHMENT, RiskTier.OVERDUE, parameter="2048"))
     assert r.strategy.value == "PQC"
-    assert r.algorithm == "ML-KEM-1024"
+    # Post security-level rewrite: RSA-2048 (~112-bit classical) resolves
+    # to NIST Category 1, so the KEM target is ML-KEM-512, not the
+    # blanket ML-KEM-1024 the old algorithm-name mapping used to pick.
+    # Larger RSA sizes (see the security-level suite) now correctly land
+    # at ML-KEM-768 / ML-KEM-1024.
+    assert r.algorithm == "ML-KEM-512"
 
     cost = r.cost_profile
     assert cost is not None
-    assert cost.public_key_bytes == 1568       # FIPS 203 ML-KEM-1024
-    assert cost.ciphertext_bytes == 1568
+    assert cost.public_key_bytes == 800        # FIPS 203 ML-KEM-512
+    assert cost.ciphertext_bytes == 768
     assert cost.signature_bytes is None
     assert cost.classical_public_key_bytes == 256   # RSA-2048 modulus (2048/8)
     assert "NIST FIPS 203" in cost.sources
@@ -74,16 +79,21 @@ def test_ecdsa_signature_pqc_has_sig_cost_profile() -> None:
         make("ECDSA", CryptoUsage.DIGITAL_SIGNATURE, RiskTier.OVERDUE, parameter="P-256")
     )
     assert r.strategy.value == "PQC"
-    assert r.algorithm == "ML-DSA-65"
+    # ECDSA on P-256 is ~128-bit -> Cat 1 -> ML-DSA-44 (the closest
+    # FIPS 204 signature parameter set; formally FIPS 204 labels it
+    # Category 2, and every migration guide pairs it with a Category 1
+    # KEM). The old mapping locked every ECDSA finding to ML-DSA-65
+    # regardless of curve.
+    assert r.algorithm == "ML-DSA-44"
 
     cost = r.cost_profile
     assert cost is not None
-    assert cost.signature_bytes == 3309        # FIPS 204 ML-DSA-65
-    assert cost.public_key_bytes == 1952
+    assert cost.signature_bytes == 2420        # FIPS 204 ML-DSA-44
+    assert cost.public_key_bytes == 1312
     assert cost.ciphertext_bytes is None
     assert cost.classical_signature_bytes == 72
     assert "NIST FIPS 204" in cost.sources
-    assert cost.relative_cost == "high"        # 3309 B ≥ 2400
+    assert cost.relative_cost == "high"        # 2420 B >= 2400
 
 
 # ── Hybrid carries a cost profile too ────────────────────────────────────────
@@ -92,7 +102,9 @@ def test_hybrid_has_cost_profile() -> None:
     r = recommend(make("ECDH", CryptoUsage.KEY_ESTABLISHMENT, RiskTier.TRANSITIONAL, parameter="P-256"))
     assert r.strategy.value == "HYBRID"
     assert r.cost_profile is not None
-    assert r.cost_profile.public_key_bytes == 1184   # ML-KEM-768
+    # ECDH on P-256 -> Cat 1 -> ML-KEM-512 (pk=800). The old mapping
+    # locked every ECDH to ML-KEM-768 (pk=1184).
+    assert r.cost_profile.public_key_bytes == 800
 
 
 # ── Defer / remediate have no PQC cost profile ───────────────────────────────
@@ -116,5 +128,6 @@ def test_cost_basis_is_published_sizes_not_latency() -> None:
 def test_cost_profile_serialises_camelcase() -> None:
     r = recommend(make("RSA", CryptoUsage.KEY_ESTABLISHMENT, RiskTier.OVERDUE))
     data = r.serialise()
-    assert data["costProfile"]["publicKeyBytes"] == 1568
+    # make() defaults parameter="2048" -> Cat 1 -> ML-KEM-512.
+    assert data["costProfile"]["publicKeyBytes"] == 800
     assert data["costProfile"]["classicalPublicKeyBytes"] == 256
